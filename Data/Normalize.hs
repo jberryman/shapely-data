@@ -34,6 +34,7 @@ class Normable a b | a -> b, b -> a where
        TODO:
        - finish code generation
        - change name to something having to do with: structure, shape, ...
+       - re-write rules from/to = id, etc.
  -}
 
 
@@ -108,6 +109,7 @@ fromNormBdy :: Con -> Q Body
 fromNormBdy (NormalC nm sts) = fmap NormalB $ deTuple $ length sts
     where deTuple :: Int -> Q Exp -- function applying n-kind constructor to n-nested tuples
           deTuple 0 = return (ConE nm) -- empty constructor (e.g. Nothing) 
+          -- IF WE DECIDE TO, RECURSIVE TYPE CONVERSION HAPPENS HERE:
           deTuple n = [| $(deTupleN n) $(return $ ConE nm) $(return sumExp) |] -- 'sumVar' is our bound tuple above
           deTupleN 1 = [| \constr a-> constr a |]
           deTupleN n = [| \constr (a,b)-> $(deTupleN (n-1)) (constr a) b |]
@@ -134,21 +136,25 @@ normprods nms [] = [t| () |] -- only used on constructor-less types
 
 -- convert a constructor into singleton type values, tuples and unit:
 normsums :: (Name,Name) -> [StrictType] -> Q Type
-normsums (nm,wrapperNm) = nsums . map (replaceRec . snd) where
+normsums (nm,wrapperNm) = nsums . map snd where
+--normsums (nm,wrapperNm) = nsums . map (replaceRec . snd) where -- RECURSIVE TYPE CONVERSION
     nsums [t]    = return t
     nsums (t:ts) = fmap (AppT (AppT (TupleT 2) t)) (nsums ts)
     nsums []     = [t| () |] -- only used for empty constructor, e.g. Nothing
     
-    -- NOTE: we replace every visible instance of the original type with the
-    -- normalized form for recursive types. This might not be the best
-    -- approach.
-    replaceRec = namemap (\n -> if n == nm then wrapperNm else n)
+    --replaceRec = namemapT (\n -> if n == nm then wrapperNm else n) -- RECURSIVE TYPE CONVERSION
 
+{-  FOR HANDLING CONVERTING RECURSIVE TYPES
+ -  IF WE DECIDE TO DO THIS IN THE FUTURE
 -- traverse a Type tree, modifying names:
-namemap :: (Name -> Name) -> Type -> Type
-namemap f (ForallT bs cxt t) = (ForallT bs cxt $ namemap f t)
-namemap f (AppT t1 t2) = AppT (namemap f t1) (namemap f t2)
-namemap f (SigT t k) = SigT (namemap f t) k
-namemap f (ConT n) = ConT $ f n
-namemap f (VarT n) = VarT $ f n
-namemap _ t = t
+namemapT :: (Name -> Name) -> Type -> Type
+namemapT f (ForallT bs cxt t) = (ForallT bs cxt $ namemapT f t)
+namemapT f (AppT t1 t2) = AppT (namemapT f t1) (namemapT f t2)
+namemapT f (SigT t k) = SigT (namemapT f t) k
+namemapT f (ConT n) = ConT $ f n
+namemapT f (VarT n) = VarT $ f n
+namemapT _ t = t
+
+namemapE :: (Name -> Name) -> Exp -> Exp
+namemapE = undefined
+-}
