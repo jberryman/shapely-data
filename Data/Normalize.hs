@@ -60,8 +60,13 @@ mkNormable n =
        -- --------------------------------------------------------
        -- build the Normable class instance for this type
        frmClauses <- fromNormClauses cnstrctrs
+       --let fromNormDec = FunD 'fromNorm frmClauses
+       let fromNormDec = FunD 'fromNorm $ 
+             [Clause [VarP $ mkName "a"] (NormalB (AppE (VarE $ mkName "fromNorm'") (AppE (VarE unwrapperName) (VarE $ mkName "a")))) 
+                [FunD (mkName "fromNorm'") frmClauses] ]
+
        let toNormDec = FunD 'toNorm (toNormClauses cnstrctrs)
-           fromNormDec = FunD 'fromNorm frmClauses
+
        let normableInstance = InstanceD [] normableTs [toNormDec, fromNormDec]
            normableTs = (ConT ''Normable) `AppT` (decToType d) `AppT` (decToType wrapper)
        return [wrapper,normableInstance]
@@ -80,9 +85,9 @@ bndNames (KindedTV n _) = n
 -- DATA CONVERSION HELPERS:
 
 
+-- FROMNORM METHOD: --
+
 -- takes list of constructors to CONVERT TO, pattern matching against Either, (), (,)
---fromNormClauses :: [Con] -> [Clause]
---fromNormClauses cs = zipWith (\p bdy-> Clause [p] bdy []) (fromNormPats cs) (map fromNormBdy cs)
 fromNormClauses :: [Con] -> Q [Clause]
 fromNormClauses cs = do bdies <- mapM fromNormBdy cs
                         let pats = fromNormPats cs
@@ -107,9 +112,12 @@ fromNormBdy (NormalC nm sts) = fmap NormalB $ deTuple $ length sts
           deTupleN 1 = [| \constr a-> constr a |]
           deTupleN n = [| \constr (a,b)-> $(deTupleN (n-1)) (constr a) b |]
 
+
+-- TONORM METHOD: --
+
 -- takes a list of constructors to CONVERT FROM (pattern match against)
 toNormClauses :: [Con] -> [Clause]
-toNormClauses = undefined
+toNormClauses _ = [Clause [WildP] (NormalB (VarE 'undefined)) []]
 
 -- -------------------------
 -- TYPE CONVERSION HELPERS:
