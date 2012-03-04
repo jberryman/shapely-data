@@ -17,12 +17,24 @@ class Normable a b | a -> b, b -> a where
 
 {-
  - NOTE:
- -     rename this something about normalization
- -         name: nermal
  -     types that are already in "normalized form" should be equal after transformations
- -     how will recursive types work?
- -     what about the notion of recursively normalizing arguments? deep nermalization? 
- -         the conversion should be re-cursive, in terms of our newtype wrapper
+ -     Call this something like "shapely" and change to Data.Shape(ly)
+ -
+ -     Structural Representation of types.
+ -
+ -     These can be ambiguous, since an argument to an initial type might be ()
+ -     for example, so the conversion back to the original depends on the arity
+ -     of the constructor. E.g.:
+ -         Right ()   --> Right ()
+ -                    --> Nothing
+ -
+ -     This I guess means that above, we should have:
+            class Normable a b | a -> b where
+       ...since the normed form doesn't actually 
+
+       TODO:
+       - finish code generation
+       - change name to something having to do with: structure, shape, ...
  -}
 
 
@@ -33,7 +45,7 @@ class Normable a b | a -> b, b -> a where
 --
 -- > $(mkNormable ''Foo)  -- '' references a TH "Name"
 --
--- This requires the @TemplateHaskell@ extension enabled.
+-- This requires the @TemplateHaskell@ extension to be enabled.
 mkNormable :: Name -> Q [Dec]
 mkNormable n = 
     do (TyConI d) <- reify n
@@ -48,9 +60,56 @@ mkNormable n =
 
        -- --------------------------------------------------------
        -- build the Normable class instance for this type
-       return [wrapper]
+       let toNormDec = FunD 'toNorm (toNormClauses cnstrctrs)
+           fromNormDec = undefined
+       let normableInstance = InstanceD [] normableTs [toNormDec, fromNormDec]
+           normableTs = (ConT ''Normable) `AppT` (decToType d) `AppT` (decToType wrapper)
+       return [wrapper,normableInstance]
+
+-- this is no fun... :-(
+decToType :: Dec -> Type
+decToType (DataD _ nm bndings _ _)    = d2t (ConT nm) bndings
+decToType (NewtypeD _ nm bndings _ _) = d2t (ConT nm) bndings
+d2t t bs = foldl AppT t $ map (VarT . bndNames) bs 
+bndNames (PlainTV n) = n
+bndNames (KindedTV n _) = n
 
 
+
+-- -------------------------
+-- DATA CONVERSION HELPERS:
+
+
+-- takes list of constructors to CONVERT TO, pattern matching against Either, (), (,)
+fromNormClauses :: [Con] -> [Clause]
+fromNormClauses cs = zipWith (\p bdy-> Clause [p] bdy []) (fromNormPats cs) (map fromNormBdy cs)
+
+-- for each constructor, return the pattern to match 
+fromNormPats :: [Con] -> [Pat]
+fromNormPats [_] = [sumVar]
+fromNormPats (_:cs) = ConP 'Left sumPat : (map wrapRightPat $ fromNormPats cs)
+fromNormPats [] = error "type has no constructors"
+
+sumPat = VarP $ mkName "sumVar"
+wrapRightPat p = ConP 'Right [p] 
+
+-- given pattern match above, return a body that de-tuples args into Con
+fromNormBdy :: Con -> Body
+fromNormBdy (NormalC nm sts) = NormalB $ deTuple $ length sts
+    where deTuple :: Int -> Exp -- function applying n-kind constructor to n-nested tuples
+          -- THIS ISN'T RIGHT: Left () is Con
+          --                   Left a is Con a
+          deTuple 0 = return (ConE nm) -- empty constructor (e.g. Nothing) 
+          deTuple n = [| $(deTupleN n) $(ConE nm) sumVar |] -- 'sumVar' is our bound tuple above
+          deTupleN 1 = [| \constr a-> constr a |]
+          deTupleN n = [| \constr (a,b)-> $(deTupleN (n-1) (constr a) b)
+
+-- takes a list of constructors to CONVERT FROM (pattern match against)
+toNormClauses :: [Con] -> [Clause]
+toNormClauses = undefined
+
+-- -------------------------
+-- TYPE CONVERSION HELPERS:
 
 -- takes a list of constructors from the original type and returns a single
 -- data type built using only (,), Either, and ()
