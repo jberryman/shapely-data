@@ -36,7 +36,6 @@ class Shapely a b | a -> b, b -> a where
        OCaml has "Structural Polymorphism"
 
        TODO:
-       - make TH code handle a list of types
        - comments (talk about "structural"), cabal project, examples/motivation
        - release 0.0
 
@@ -60,9 +59,10 @@ class Shapely a b | a -> b, b -> a where
 -- > $(mkShapely ''Foo)  -- '' references a TH "Name"
 --
 -- This requires the @TemplateHaskell@ extension to be enabled.
-mkShapely :: Name -> Q [Dec]
-mkShapely n = 
-    do (TyConI d) <- reify n  -- what about PrimTyconI? should we represent literals as newtype-wrapped literals?
+mkShapely :: [Name] -> Q [Dec]
+mkShapely = fmap concat . mapM mkShapely' where
+    mkShapely' n = do
+       (TyConI d) <- reify n  -- what about PrimTyconI? should we represent literals as newtype-wrapped literals?
        let (DataD cxt nm bndings cnstrctrs derivng) = d
 
        -- --------------------------------------------------------
