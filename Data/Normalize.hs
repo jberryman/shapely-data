@@ -31,11 +31,27 @@ class Normable a b | a -> b, b -> a where
        ambiguity in our class conversions is avoided since each has a newtype
        wrapper
 
+       Structural/Duck typing is relevant here:
+           http://www.haskell.org/pipermail/haskell-cafe/2009-September/066733.html
+       OCaml has "Structural Polymorphism"
+
        TODO:
-       - finish code generation
        - change name to something having to do with: structure, shape, ...
+            - shapely-data, Data.Shapely to/fromShapely OR shapely/project ShapelyFoo shapelyFoo
+            - structural typing: data-structural, from/toStructured 
+            - or call it 'shapely' and make names and descriptions refer to "structured"
+                structured/destructured
+       - hlint
        - make TH code handle a list of types
+       - release 0.0
+
        - handle empty bottom types in some way
+       - some clever way to handle recursive types would be great so that we can convert [a] to (List a)
+            - make fromNorm take a constructor as an argument?
+            - replace recursive args with `Recursive (Foo a)`?
+       - some mechanism for converting between sum types with identical but re-ordered args
+            - perhaps some kind of canonical ordering of constructors
+       - add infix :+ :* type operators?
        - re-write rules from/to = id, etc.
  -}
 
