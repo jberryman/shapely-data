@@ -34,6 +34,8 @@ class Normable a b | a -> b, b -> a where
        TODO:
        - finish code generation
        - change name to something having to do with: structure, shape, ...
+       - make TH code handle a list of types
+       - handle empty bottom types in some way
        - re-write rules from/to = id, etc.
  -}
 
@@ -66,7 +68,10 @@ mkNormable n =
              [Clause [VarP $ mkName "a"] (NormalB (AppE (VarE $ mkName "fromNorm'") (AppE (VarE unwrapperName) (VarE $ mkName "a")))) 
                 [FunD (mkName "fromNorm'") frmClauses] ]
 
-       let toNormDec = FunD 'toNorm (toNormClauses cnstrctrs)
+       --let toNormDec = FunD 'toNorm (toNormClauses cnstrctrs)
+       let toNormDec = FunD 'toNorm $ 
+             [Clause [VarP $ mkName "a"] (NormalB ((ConE wrapperNm) `AppE` ((VarE $ mkName "toNorm'") `AppE` (VarE $ mkName "a")))) 
+                [FunD (mkName "toNorm'") (toNormClauses cnstrctrs)] ]
 
        let normableInstance = InstanceD [] normableTs [toNormDec, fromNormDec]
            normableTs = (ConT ''Normable) `AppT` (decToType d) `AppT` (decToType wrapper)
@@ -86,7 +91,7 @@ bndNames (KindedTV n _) = n
 -- DATA CONVERSION HELPERS:
 
 
--- FROMNORM METHOD: --
+---- FROMNORM METHOD: ----
 
 -- takes list of constructors to CONVERT TO, pattern matching against Either, (), (,)
 fromNormClauses :: [Con] -> Q [Clause]
@@ -115,12 +120,32 @@ fromNormBdy (NormalC nm sts) = fmap NormalB $ deTuple $ length sts
           deTupleN n = [| \constr (a,b)-> $(deTupleN (n-1)) (constr a) b |]
 
 
--- TONORM METHOD: --
+---- TONORM METHOD: ----
 
 -- takes a list of constructors to CONVERT FROM (pattern match against)
 toNormClauses :: [Con] -> [Clause]
-toNormClauses _ = [Clause [WildP] (NormalB (VarE 'undefined)) []]
+-- toNormClauses _ = [Clause [WildP] (NormalB (VarE 'undefined)) []]
+toNormClauses cs = 
+    let pats = map toNormPat cs
+        bdies = map NormalB $ toNormExps cs
+    in zipWith (\p bdy-> Clause [p] bdy []) pats bdies
 
+toNormPat :: Con -> Pat
+toNormPat (NormalC n sts) = ConP n $ map VarP $ take (length sts) ordNames
+
+ordNames = [ mkName ('s':show t) | t <- [1..]] --infinite list of names for sums
+
+toNormExps :: [Con] -> [Exp]
+toNormExps [c]    = [toNormSumExp c]
+toNormExps (c:cs) = AppE (ConE 'Left) (toNormSumExp c) : map (AppE $ ConE 'Right) (toNormExps cs)
+toNormExps [] = error "type has no constructors"
+
+toNormSumExp :: Con -> Exp
+toNormSumExp (NormalC n sts) = toNormTuple $ take (length sts) ordNames
+    where toNormTuple [n] = VarE n
+          toNormTuple (n:ns) = TupE [VarE n, toNormTuple ns]
+          -- empty constructor is unit type:
+          toNormTuple [] = ConE '()
 -- -------------------------
 -- TYPE CONVERSION HELPERS:
 
