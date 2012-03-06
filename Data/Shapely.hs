@@ -36,21 +36,16 @@ class Shapely a b | a -> b, b -> a where
        OCaml has "Structural Polymorphism"
 
        TODO:
-       - change name to something having to do with: structure, shape, ...
-            - shapely-data, Data.Shapely to/fromShapely OR shapely/project ShapelyFoo shapelyFoo
-            - structural typing: data-structural, from/toStructured 
-            - or call it 'shapely' and make names and descriptions refer to "structured"
-                structured/destructured
-       - hlint
        - make TH code handle a list of types
-       - comments, initial cabal file
+       - comments (talk about "structural"), cabal project, examples/motivation
        - release 0.0
 
+       - support record types, etc. etc.
        - handle empty bottom types in some way
-       - some clever way to handle recursive types would be great so that we can convert [a] to (List a)
+       - some clever way to handle recursive types so that we can convert [a] to (List a)
             - make fromShapely take a constructor as an argument?
             - replace recursive args with `Recursive (Foo a)`?
-       - some mechanism for converting between sum types with identical but re-ordered args
+       - types with equivalent shape, except for constructor ordering should be convertible back and forth
             - perhaps some kind of canonical ordering of constructors
        - add infix :+ :* type operators?
        - re-write rules from/to = id, etc.
@@ -80,12 +75,10 @@ mkShapely n =
        -- --------------------------------------------------------
        -- build the Shapely class instance for this type
        frmClauses <- fromShapelyClauses cnstrctrs
-       --let fromShapelyDec = FunD 'fromShapely frmClauses
        let fromShapelyDec = FunD 'fromShapely $ 
              [Clause [VarP $ mkName "a"] (NormalB (AppE (VarE $ mkName "fromShapely'") (AppE (VarE unwrapperName) (VarE $ mkName "a")))) 
                 [FunD (mkName "fromShapely'") frmClauses] ]
 
-       --let toShapelyDec = FunD 'toShapely (toShapelyClauses cnstrctrs)
        let toShapelyDec = FunD 'toShapely $ 
              [Clause [VarP $ mkName "a"] (NormalB ((ConE wrapperNm) `AppE` ((VarE $ mkName "toShapely'") `AppE` (VarE $ mkName "a")))) 
                 [FunD (mkName "toShapely'") (toShapelyClauses cnstrctrs)] ]
@@ -142,7 +135,6 @@ fromShapelyBdy (NormalC nm sts) = fmap NormalB $ deTuple $ length sts
 
 -- takes a list of constructors to CONVERT FROM (pattern match against)
 toShapelyClauses :: [Con] -> [Clause]
--- toShapelyClauses _ = [Clause [WildP] (NormalB (VarE 'undefined)) []]
 toShapelyClauses cs = 
     let pats = map toShapelyPat cs
         bdies = map NormalB $ toShapelyExps cs
@@ -164,6 +156,8 @@ toShapelySumExp (NormalC n sts) = toShapelyTuple $ take (length sts) ordNames
           toShapelyTuple (n:ns) = TupE [VarE n, toShapelyTuple ns]
           -- empty constructor is unit type:
           toShapelyTuple [] = ConE '()
+
+
 -- -------------------------
 -- TYPE CONVERSION HELPERS:
 
