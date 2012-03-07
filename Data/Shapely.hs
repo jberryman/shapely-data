@@ -1,5 +1,52 @@
 {-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, TemplateHaskell #-}
 module Data.Shapely (
+{- |
+   This is an experimantal module for converting aribtrary algebraic data types
+   into combinations of haskell's primitive product (@(,)@), sum (@Either@),
+   and unit (@()@) types. The idea is to move the /structure/ of a data type
+   into the type system. 
+   .
+   The templeate haskell function 'mkName' can be used in a splice to generate
+   'Shapely' class instances for a list of types. Here is an example of a
+   Shapely instance generated for @Maybe@, illustrating naming conventions
+   in generated code:
+   .
+   > {-# LANGUAGE TemplateHaskell #-}
+   > -- This code:
+   > $(mkShapely [''Maybe])
+   > -- generates code equivalent to:
+   > {-
+   >  newtype ShapelyMaybe a = ShapelyMaybe {shapelyMaybe :: Either () a}
+   >  instance Shapely (Maybe a) (ShapelyMaybe a) where
+   >        toShapely a = ShapelyMaybe (toShapely' a)
+   >          where
+   >              toShapely' Nothing = Left GHC.Unit.()
+   >              toShapely' (Just s1) = Right s1
+   >        fromShapely a = fromShapely' (shapelyMaybe a)
+   >          where
+   >              fromShapely' (Left sumVar) = Nothing
+   >              fromShapely' (Right sumVar)
+   >                = \constr a-> constr a Just sumVar 
+   > -}
+   .
+   Note that the resulting "structural form" might be ambiguous, for instance
+   both the types @data Foo = Foo Int | Empty@ and @data Bar = Bar Int |
+   HoldsUnit ()@ will convert to @Either Int ()@. This poses no problem for
+   conversions however.
+   .
+   This is mostly proof-of-concept, but some potentially-useful applications
+   for this and future versions:
+   .
+   - generic view functions and lenses 
+   - conversions between similarly-structured data, or "canonical representation"
+   - incremental @Category@-level modification of data structure, e.g. with @Arrow@
+   - serializing data types
+   .
+   /Caveats:/ In this version only basic (non-record) types are supported,
+   recursive type arguments are not converted, etc. Let me know if you would
+   find this module useful with additional functionality or more robust handling
+   of input types.
+-}
     mkShapely
   , Shapely(..)
   ) where
@@ -17,29 +64,13 @@ class Shapely a b | a -> b, b -> a where
 
 {-
  - NOTE:
- -     types that are already in "normalized form" should be equal after transformations
- -     Call this something like "shapely" and change to Data.Shape(ly)
- -
- -     Structural Representation of types.
- -
- -     These can be ambiguous, since an argument to an initial type might be ()
- -     for example, so the conversion back to the original depends on the arity
- -     of the constructor. E.g.:
- -         Right ()   --> Right ()
- -                    --> Nothing
- -
-       ambiguity in our class conversions is avoided since each has a newtype
-       wrapper
-
-       Structural/Duck typing is relevant here:
-           http://www.haskell.org/pipermail/haskell-cafe/2009-September/066733.html
-       OCaml has "Structural Polymorphism"
 
        TODO:
        - comments (talk about "structural"), cabal project, examples/motivation
+       - kill warnings
        - release 0.0
 
-       - support record types, etc. etc.
+       - support record types, strict/non-strict, derived classes, prettify variable names, etc. etc.
        - handle empty bottom types in some way
        - some clever way to handle recursive types so that we can convert [a] to (List a)
             - make fromShapely take a constructor as an argument?
@@ -47,16 +78,15 @@ class Shapely a b | a -> b, b -> a where
        - types with equivalent shape, except for constructor ordering should be convertible back and forth
             - perhaps some kind of canonical ordering of constructors
        - add infix :+ :* type operators?
+       - if this becomes more useful, the Shapely class should live in it's own module
        - re-write rules from/to = id, etc.
  -}
 
 
--- TODO HERE: handle derived classes, decide about strict/NotStrict, records, make
---            variable names prettier
-
--- | Generate a 'Shapely' instance for the referenced types. E.g.
+-- | Generate a 'Shapely' instance and newtype wrapper for the referenced
+-- types (see above for naming conventions). Usage:
 --
--- > $(mkShapely ''Foo)  -- '' references a TH "Name"
+-- > $(mkShapely [''Foo])  -- single-quotes reference a TH "Name"
 --
 -- This requires the @TemplateHaskell@ extension to be enabled.
 mkShapely :: [Name] -> Q [Dec]
@@ -100,9 +130,7 @@ bndNames (KindedTV n _) = n
 -- -------------------------
 -- DATA CONVERSION HELPERS:
 
-
 ---- FROMSHAPELY METHOD: ----
-
 -- takes list of constructors to CONVERT TO, pattern matching against Either, (), (,)
 fromShapelyClauses :: [Con] -> Q [Clause]
 fromShapelyClauses cs = do 
@@ -132,7 +160,6 @@ fromShapelyBdy (NormalC nm sts) = fmap NormalB $ deTuple $ length sts
 
 
 ---- TOSHAPELY METHOD: ----
-
 -- takes a list of constructors to CONVERT FROM (pattern match against)
 toShapelyClauses :: [Con] -> [Clause]
 toShapelyClauses cs = 
