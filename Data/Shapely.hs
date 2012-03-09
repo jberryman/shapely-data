@@ -66,11 +66,12 @@ class Shapely a b | a -> b, b -> a where
  - NOTE:
 
        TODO:
-       - comments (talk about "structural"), cabal project, examples/motivation
-       - kill warnings
        - release 0.0
 
-       - support record types, strict/non-strict, derived classes, prettify variable names, etc. etc.
+       - generate pairs of convenience functions:
+           toShapelyFoo = shapelyFoo . toShapely
+           fromShapelyFoo = fromShapely . ShapelyFoo
+       - support record types, type operators e.g. [], strict/non-strict, derived classes, prettify variable names, etc. etc.
        - handle empty bottom types in some way
        - some clever way to handle recursive types so that we can convert [a] to (List a)
             - make fromShapely take a constructor as an argument?
