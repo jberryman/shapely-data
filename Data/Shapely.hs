@@ -93,14 +93,15 @@ mkShapely :: [Name] -> Q [Dec]
 mkShapely = fmap concat . mapM mkShapely' where
     mkShapely' n = do
        (TyConI d) <- reify n  -- what about PrimTyconI? should we represent literals as newtype-wrapped literals?
-       let (DataD cxt nm bndings cnstrctrs derivng) = d
+       let (DataD ctxt nm bndings cnstrctrs derivng) = d
 
        -- --------------------------------------------------------
        -- create the newtype wrapper for "shapely" version
        let wrapperNm = mkName ("Shapely" ++ nameBase nm)  -- e.g. "ShapelyFoo"
-       shapelyed <- shapelyProds (nm,wrapperNm) cnstrctrs
+       shapelyed <- shapelyProds  cnstrctrs
+       --shapelyed <- shapelyProds (nm,wrapperNm) cnstrctrs
        let unwrapperName = mkName ("shapely" ++ nameBase nm)
-           wrapper = NewtypeD cxt wrapperNm bndings (RecC wrapperNm [(unwrapperName,NotStrict,shapelyed)]) [] 
+           wrapper = NewtypeD ctxt wrapperNm bndings (RecC wrapperNm [(unwrapperName,NotStrict,shapelyed)]) [] 
 
        -- --------------------------------------------------------
        -- build the Shapely class instance for this type
@@ -119,11 +120,14 @@ mkShapely = fmap concat . mapM mkShapely' where
 
 -- this is no fun... :-(
 decToType :: Dec -> Type
-decToType (DataD _ nm bndings _ _)    = d2t (ConT nm) bndings
-decToType (NewtypeD _ nm bndings _ _) = d2t (ConT nm) bndings
-d2t t bs = foldl AppT t $ map (VarT . bndNames) bs 
-bndNames (PlainTV n) = n
-bndNames (KindedTV n _) = n
+decToType (DataD _ nm bndings _ _)    = d2t nm bndings
+decToType (NewtypeD _ nm bndings _ _) = d2t nm bndings
+decToType _ = error "TODO, sorry"
+
+d2t :: Name -> [TyVarBndr] -> Type
+d2t nm = foldl AppT (ConT nm) . map (VarT . bndNames)
+    where bndNames (PlainTV n) = n
+          bndNames (KindedTV n _) = n
 
 
 
@@ -141,12 +145,13 @@ fromShapelyClauses cs = do
 -- for each constructor, return the pattern to match 
 fromShapelyPats :: [Con] -> [Pat]
 fromShapelyPats [_] = [sumPat]
-fromShapelyPats (_:cs) = ConP 'Left [sumPat] : (map wrapRightPat $ fromShapelyPats cs)
+fromShapelyPats (_:cs) = ConP 'Left [sumPat] : (map (\p-> ConP 'Right [p]) $ fromShapelyPats cs)
 fromShapelyPats [] = error "type has no constructors"
 
+sumPat :: Pat
 sumPat = VarP $ mkName "sumVar"
+sumExp :: Exp
 sumExp = VarE $ mkName "sumVar"
-wrapRightPat p = ConP 'Right [p] 
 
 -- given pattern match above, return a body that de-tuples args into Con
 fromShapelyBdy :: Con -> Q Body
@@ -157,6 +162,7 @@ fromShapelyBdy (NormalC nm sts) = fmap NormalB $ deTuple $ length sts
           deTuple n = [| $(deTupleN n) $(return $ ConE nm) $(return sumExp) |] -- 'sumVar' is our bound tuple above
           deTupleN 1 = [| \constr a-> constr a |]
           deTupleN n = [| \constr (a,b)-> $(deTupleN (n-1)) (constr a) b |]
+fromShapelyBdy _ = error "TODO, sorry"
 
 
 ---- TOSHAPELY METHOD: ----
@@ -169,8 +175,10 @@ toShapelyClauses cs =
 
 toShapelyPat :: Con -> Pat
 toShapelyPat (NormalC n sts) = ConP n $ map VarP $ take (length sts) ordNames
+toShapelyPat _ = error "TODO, sorry"
 
-ordNames = [ mkName ('s':show t) | t <- [1..]] --infinite list of names for sums
+ordNames :: [Name]
+ordNames = [ mkName ('s':show t) | t <- [1..] :: [Int] ] --infinite list of names for sums
 
 toShapelyExps :: [Con] -> [Exp]
 toShapelyExps [c]    = [toShapelySumExp c]
@@ -178,11 +186,12 @@ toShapelyExps (c:cs) = AppE (ConE 'Left) (toShapelySumExp c) : map (AppE $ ConE 
 toShapelyExps [] = error "type has no constructors"
 
 toShapelySumExp :: Con -> Exp
-toShapelySumExp (NormalC n sts) = toShapelyTuple $ take (length sts) ordNames
+toShapelySumExp (NormalC _ sts) = toShapelyTuple $ take (length sts) ordNames
     where toShapelyTuple [n] = VarE n
           toShapelyTuple (n:ns) = TupE [VarE n, toShapelyTuple ns]
           -- empty constructor is unit type:
           toShapelyTuple [] = ConE '()
+toShapelySumExp _ = error "TODO, sorry"
 
 
 -- -------------------------
@@ -191,16 +200,16 @@ toShapelySumExp (NormalC n sts) = toShapelyTuple $ take (length sts) ordNames
 -- takes a list of constructors from the original type and returns a single
 -- data type built using only (,), Either, and ()
 -- This bit does the products, calling 'shapelysums' for each constructor
-shapelyProds :: (Name,Name) -> [Con] -> Q Type
-shapelyProds nms [c] = let (NormalC _ args) = c
-                     in shapelysums nms args
-shapelyProds nms (c:cs) = let (NormalC _ args) = c
-                        in [t| Either $(shapelysums nms args) $(shapelyProds nms cs) |] 
-shapelyProds nms [] = [t| () |] -- only used on constructor-less types
+shapelyProds :: [Con] -> Q Type
+shapelyProds [NormalC _ args] = shapelysums args
+shapelyProds ((NormalC _ args):cs) = 
+    [t| Either $(shapelysums args) $(shapelyProds cs) |] 
+shapelyProds [] = [t| () |] -- only used on constructor-less types
+shapelyProds _ = error "TODO, sorry"
 
 -- convert a constructor into singleton type values, tuples and unit:
-shapelysums :: (Name,Name) -> [StrictType] -> Q Type
-shapelysums (nm,wrapperNm) = nsums . map snd where
+shapelysums :: [StrictType] -> Q Type
+shapelysums = nsums . map snd where
 --shapelysums (nm,wrapperNm) = nsums . map (replaceRec . snd) where -- RECURSIVE TYPE CONVERSION
     nsums [t]    = return t
     nsums (t:ts) = fmap (AppT (AppT (TupleT 2) t)) (nsums ts)
@@ -212,7 +221,7 @@ shapelysums (nm,wrapperNm) = nsums . map snd where
  -  IF WE DECIDE TO DO THIS IN THE FUTURE
 -- traverse a Type tree, modifying names:
 namemapT :: (Name -> Name) -> Type -> Type
-namemapT f (ForallT bs cxt t) = (ForallT bs cxt $ namemapT f t)
+namemapT f (ForallT bs ctxt t) = (ForallT bs ctxt $ namemapT f t)
 namemapT f (AppT t1 t2) = AppT (namemapT f t1) (namemapT f t2)
 namemapT f (SigT t k) = SigT (namemapT f t) k
 namemapT f (ConT n) = ConT $ f n
