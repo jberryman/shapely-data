@@ -10,25 +10,28 @@ module Data.Shapely (
    'Shapely' class instances for a list of types. Here is an example of a
    Shapely instance generated for @Maybe@, illustrating naming conventions
    in generated code:
-   .
-   > {-# LANGUAGE TemplateHaskell #-}
-   > -- This code:
-   > $(mkShapely [''Maybe])
-   > -- generates code equivalent to:
-   > {-
-   >  newtype ShapelyMaybe a = ShapelyMaybe {shapelyMaybe :: Either () a}
-   >  instance Shapely (Maybe a) (ShapelyMaybe a) where
-   >        toShapely a = ShapelyMaybe (toShapely' a)
-   >          where
-   >              toShapely' Nothing = Left GHC.Unit.()
-   >              toShapely' (Just s1) = Right s1
-   >        fromShapely a = fromShapely' (shapelyMaybe a)
-   >          where
-   >              fromShapely' (Left sumVar) = Nothing
-   >              fromShapely' (Right sumVar)
-   >                = \constr a-> constr a Just sumVar 
-   > -}
-   .
+-}
+
+-- | 
+-- > {-# LANGUAGE TemplateHaskell #-}
+-- > -- This code:
+-- > $(mkShapely [''Maybe])
+-- > -- generates code equivalent to:
+-- > {-
+-- >  newtype ShapelyMaybe a = ShapelyMaybe {shapelyMaybe :: Either () a}
+-- >  instance Shapely (Maybe a) (ShapelyMaybe a) where
+-- >        toShapely a = ShapelyMaybe (toShapely' a)
+-- >          where
+-- >              toShapely' Nothing = Left GHC.Unit.()
+-- >              toShapely' (Just s1) = Right s1
+-- >        fromShapely a = fromShapely' (shapelyMaybe a)
+-- >          where
+-- >              fromShapely' (Left sumVar) = Nothing
+-- >              fromShapely' (Right sumVar)
+-- >                = \constr a-> constr a Just sumVar 
+-- > -}
+
+{- | 
    Note that the resulting "structural form" might be ambiguous, for instance
    both the types @data Foo = Foo Int | Empty@ and @data Bar = Bar Int |
    HoldsUnit ()@ will convert to @Either Int ()@. This poses no problem for

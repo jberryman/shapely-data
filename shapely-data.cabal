@@ -2,7 +2,7 @@ Name:                shapely-data
 
 Version:             0.0
 
-Synopsis:            Template haskell conversion of data types to a "structural form" built from primitive sum, product, and unit types.
+Synopsis:            Template haskell conversion of types to a "structural form" built from primitive sum, product, and unit types.
 
 Description:         This is an experimental package providing template haskell
                      code to convert to and from normal algebraic data types and a
@@ -30,7 +30,7 @@ Build-type:          Simple
 
 Extra-source-files:  README.md
 
-Cabal-version:       >=1.2
+Cabal-version:       >=1.6
 
 source-repository head   
     type:     git
@@ -40,7 +40,8 @@ source-repository head
 Library
   Exposed-modules:     Data.Shapely
   
-  Build-depends:       template-haskell >= 2 && < 3
+  Build-depends:       base <5
+                     , template-haskell >= 2 && < 3
   
   Extensions:          MultiParamTypeClasses
                      , FunctionalDependencies
