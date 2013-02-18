@@ -12,6 +12,10 @@ module Data.Shapely (
    in generated code:
 -}
 
+-- TODO:
+-- Read paper, consider their notion of isomorphic types
+-- Use associated type synonym for "canonical" form
+
 -- | 
 -- > {-# LANGUAGE TemplateHaskell #-}
 -- > -- This code:
