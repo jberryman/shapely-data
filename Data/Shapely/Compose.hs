@@ -46,7 +46,7 @@ type instance Head (x,xs) = x
 type instance Head (Either x xs) = x
 
 type instance Tail (x,xs) = xs
-type instance Tail (Either x xs) = xs
+type instance Tail (Either x xs) = xs -- ISSUE: this must be a (possibly singleton) Coproduct
 
 
 -- TODO move into Poppable?
@@ -57,8 +57,8 @@ type instance Init (xN,()) = ()
 type instance Init (x,(y,zs)) = (x, Init (y,zs)) 
 
 type instance Init (Either x (Either y zs)) = Either x (Init (Either y zs))
-type instance Init (Either x ()) = x
-type instance Init (Either x (a,b)) = x
+type instance Init (Either x ()) = x    -- ISSUE: these must be a singleton Coproduct... Is that just Maybe??
+type instance Init (Either x (a,b)) = x --        probably have to assemble above with (:<|:)
 
 type instance Last (x,()) = x
 type instance Last (x,(y,zs)) = Last (y,zs) 
@@ -66,6 +66,9 @@ type instance Last (x,(y,zs)) = Last (y,zs)
 type instance Last (Either x (Either y zs)) = Last (Either y zs) 
 type instance Last (Either x ()) = ()
 type instance Last (Either x (a,b)) = (a,b)
+
+type family t :<|: ts
+type instance t :<|: ts = (NormalConstr (NormalType ts)) t ts
 
  -- TODO remove class and define as = popr = swap . shiftr
 -- | A class supporting a \"pop\" operation off the right end of a product or
@@ -88,6 +91,52 @@ instance Poppable (Either x (a,b)) where
 
 instance (Poppable (Either y zs))=> Poppable (Either x (Either y zs)) where
     popr = disassociate . fmap popr
+
+type family xs :|>: x
+type instance () :|>: x = (x,())
+type instance (x0,xs) :|>: x = (x0, xs :|>: x)
+type instance Either a () :|>: x = Either a (Either () x)
+type instance Either a (b,c) :|>: x = Either a (Either (b,c) x)
+type instance Either a (Either b ts) :|>: x = Either a (Either b ts :|>: x)
+
+-- TODO pushr is just shiftr. So remove this, replace implementation of Shiftable, keep product push function
+-- TODO - add pushl (or at least the type func) for use in Shiftable
+--      - maybe combine with Poppable (and call it 'Stacklike'?
+-- | A class supporting a \"push\" operation onto the right end of a product or
+-- coproduct. The equivalent left push would be simply 'id'
+class Pushable xs x where
+    pushr :: (t ~ NormalConstr (NormalType xs))=> t xs x -> (xs :|>: x)
+    --pushl :: (t ~ NormalConstr (NormalType xs))=> t x xs -> t x xs
+ 
+instance Pushable () x where
+    pushr = swap
+
+instance (NormalType xs ~ Product, Pushable xs x)=> Pushable (x0,xs) x where
+    pushr = fmap pushr . associate
+
+instance (NormalType x ~ Product)=> Pushable (Either a ()) x where
+    pushr = associate
+
+instance (NormalType x ~ Product)=> Pushable (Either a (b,c)) x where
+    pushr = associate
+
+instance (Pushable (Either b ts) x)=> Pushable (Either a (Either b ts)) x where
+    pushr = fmap pushr . associate
+
+infixl 5 .|>
+infixl 5 <|.
+
+-- | A convenience operator for appending an element to a product type.
+--
+-- > (.|>) = curry pushr
+(.|>) :: (NormalType xs ~ Product, Pushable xs x)=>xs -> x -> (xs :|>: x)
+(.|>) = curry pushr
+
+-- | A left push for Products.
+--
+-- > (<|.) = (,)
+(<|.) ::  (NormalType xs ~ Product)=> x -> xs -> (x,xs)
+(<|.) = (,)
 
 
 -- | Class supporting normal type equivalent to list @concat@ function, for
@@ -132,12 +181,12 @@ instance Reversable () where
 
 -- TODO: DEFINE IN TERMS OF SHIFTR AND SHIFTL
 -- instance Reversable t where
---     type Reversed t = Reversed (Tail t) :|> Head t
+--     type Reversed t = Reversed (Tail t) :|>: Head t
 --     nreverse = shiftl . fmap nreverse -- PROBLEM: no base case!
 -- TODO: recreate relevant copy of categories in sub-module, use internally (don't export).
 -- TODO: is this efficient? what does this even look like compiled?
 instance (NormalType (Reversed xs) ~ Product, Pushable (Reversed xs) x, Reversable xs)=> Reversable (x,xs) where
-    type Reversed (x,xs) = Reversed xs :|> x
+    type Reversed (x,xs) = Reversed xs :|>: x
     nreverse = pushr . swap . fmap nreverse
     --nreverse (x,xs) = nreverse xs .|> x
 
@@ -151,53 +200,53 @@ instance Reversable (Either a (x,y)) where
 
 -- TODO switch the ordering of args to pushr... WHICH WOULD GIVE US SHIFTR!
 instance (NormalType (Either x ys) ~ Coproduct, NormalConstr (NormalType (Reversed (Either x ys))) ~ Either, Pushable (Reversed (Either x ys)) a, Reversable (Either x ys))=> Reversable (Either a (Either x ys)) where
-    type Reversed (Either a (Either x ys)) = Reversed (Either x ys) :|> a
+    type Reversed (Either a (Either x ys)) = Reversed (Either x ys) :|>: a
     nreverse = pushr . swap . fmap nreverse
 
 
 -- | a class for shifting a sum or product left or right by one element, i.e. a
 -- logical shift
 class Shiftable t where
-    type ShiftedL t
-    type ShiftedL t = Tail t :|> Head t
-    type ShiftedR t
-    type ShiftedR t = NormalConstr t (Last t) (Init t)
+    -- type ShiftedL t
+    -- type ShiftedL t = Tail t :|>: Head t
+    -- type ShiftedR t
+    -- type ShiftedR t = Last t :<|: Init t
     shiftl :: t -> ShiftedL t
     shiftr :: t -> ShiftedR t
 
--- TODO move :|>: out and into its own deal, like here.
+type ShiftedL t = Tail t :|>: Head t
+type ShiftedR t = Last t :<|: Init t
+
 {-
-type family t :<| ts
-type instance t :<| ts = NormalConstr ts t ts
--}
-
-
--- class Shiftable t where
---     type ShiftedL t 
---     type ShiftedR t
---     shiftl :: t -> ShiftedL t
---     shiftr :: t -> ShiftedR t
-{-
-instance Shiftable () where
-    type ShiftedL () = ()
-    type ShiftedR () = ()
-    shiftl = id
-    shiftr = id
-
-instance (Shiftable xs)=> (x,xs) where
-    type ShiftedL (x,xs) = xs :|> x
-    type ShiftedL 
--}
-
-{- TODO: REPLACE WITH THIS?
+-- NOTE: Thought about letting this subsume Pushable/Poppable
+-- associate $ first swap $ disassociate
 instance (Pushable (Tail s) (Head s), Poppable s)=> Shiftable s where
-    type ShiftedL s = Tail s :|> Head s
-    type ShiftedR s = Last s :<| Init s
     shiftl = pushr . swap
     shiftr = swap . popr
 -}
 
+instance Shiftable (x,()) where
+    shiftl = id
+    shiftr = id
 
+swapFront :: Symmetric (->) p => p b (p a c) -> p a (p b c)
+swapFront = associate . first swap . disassociate
+
+--TODO: this constraint is terrible:
+instance (Shiftable (y,zs)
+        , Shiftable (x, zs)
+        , NormalConstr (NormalType (Init (y, zs))) ~ (,) -- could we redefine Init instance in terms of NormalConstr
+        )=> Shiftable (x,(y,zs)) where
+    shiftl = fmap shiftl . swapFront
+    shiftr = swapFront . fmap shiftr
+
+instance Shiftable (Either a ()) where
+    shiftl = swap
+    shiftr = swap
+
+instance Shiftable (Either a (x,y)) where
+    shiftl = swap
+    shiftr = swap
 
 -- | A class supporting an N-ary 'uncurry' operation for applying functions to
 -- 'Normal' products of matching arity.
@@ -252,51 +301,6 @@ infixr 5 .++.
 --      - how can we combine multiple clasues?
 
 
--- TODO pushr is just shiftr. So remove this, replace implementation of Shiftable, keep product push function
--- TODO - add pushl (or at least the type func) for use in Shiftable
---      - maybe combine with Poppable (and call it 'Stacklike'?
--- | A class supporting a \"push\" operation onto the right end of a product or
--- coproduct. The equivalent left push would be simply 'id'
-class Pushable xs x where
-    type xs :|> x
-    pushr :: (t ~ NormalConstr (NormalType xs))=> t xs x -> (xs :|> x)
-    --pushl :: (t ~ NormalConstr (NormalType xs))=> t x xs -> t x xs
- 
-instance Pushable () x where
-    type () :|> x = (x,())
-    pushr = swap
-
-instance (NormalType xs ~ Product, Pushable xs x)=> Pushable (x0,xs) x where
-    type (x0,xs) :|> x = (x0, xs :|> x)
-    pushr = fmap pushr . associate
-
-instance (NormalType x ~ Product)=> Pushable (Either a ()) x where
-    type Either a () :|> x = Either a (Either () x)
-    pushr = associate
-
-instance (NormalType x ~ Product)=> Pushable (Either a (b,c)) x where
-    type Either a (b,c) :|> x = Either a (Either (b,c) x)
-    pushr = associate
-
-instance (Pushable (Either b ts) x)=> Pushable (Either a (Either b ts)) x where
-    type Either a (Either b ts) :|> x = Either a (Either b ts :|> x)
-    pushr = fmap pushr . associate
-
-infixl 5 .|>
-infixl 5 <|.
-
--- | A convenience operator for appending an element to a product type.
---
--- > (.|>) = curry pushr
-(.|>) :: (NormalType xs ~ Product, Pushable xs x)=>xs -> x -> (xs :|> x)
-(.|>) = curry pushr
-
--- | A left push for Products.
---
--- > (<|.) = (,)
-(<|.) ::  (NormalType xs ~ Product)=> x -> xs -> (x,xs)
-(<|.) = (,)
-
 -- TAGS FOR PRODUCT / SUM TYPES:
 
 -- TODO: BETTER TO MAKE THIS A CLASS (or add one) SO WE GET:
@@ -323,6 +327,6 @@ instance (Product ts)=> Product (a,ts)
 
 class (NormalConstr e ~ Either)=> Coproduct e 
 instance (Product t)=> Coproduct (Either t ())
-instance (Product t)=> Coproduct (Either t (a,b))
+instance (Product t, Product b)=> Coproduct (Either t (a,b))
 instance (Product t, Coproduct (Either b c))=> Coproduct (Either t (Either b c))
 -}

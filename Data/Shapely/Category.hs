@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies #-}
 module Data.Shapely.Category
     where
 
@@ -6,25 +6,54 @@ module Data.Shapely.Category
 -- private module, copy-pasted from Edward A. Kmett's "categories" package,
 -- version 1.0.5, licensed BSD3.
 -- ========================================================================
+import Prelude hiding (id, (.))
+import Control.Category
+
+-- from Control.Categorical.Bifunctor ----------------------------------------
+class (Category r, Category t) => PFunctor p r t | p r -> t, p t -> r where
+    first :: r a b -> t (p a c) (p b c)
+
+class (Category s, Category t) => QFunctor q s t | q s -> t, q t -> s where
+    second :: s a b -> t (q c a) (q c b)
+
+class (PFunctor p r t, QFunctor p s t) => Bifunctor p r s t | p r -> s t, p s -> r t, p t -> r s where
+    bimap :: r a b -> s c d -> t (p a c) (p b d)
+
+instance PFunctor (,) (->) (->) where 
+    first f = bimap f id
+instance QFunctor (,) (->) (->) where 
+    second = bimap id
+instance Bifunctor (,) (->) (->) (->) where
+    bimap f g (a,b)= (f a, g b)
+
+instance PFunctor Either (->) (->) where 
+    first f = bimap f id
+instance QFunctor Either (->) (->) where 
+    second = bimap id
+instance Bifunctor Either (->) (->) (->) where
+    bimap f _ (Left a) = Left (f a)
+    bimap _ g (Right a) = Right (g a)
+
+instance QFunctor (->) (->) (->) where
+    second = (.)
 
 
 -- from Control.Category.Associative ---------------------------------------
---class Bifunctor p k k k => Associative k p where
-class Associative k p where
+class Bifunctor p k k k => Associative k p where
     associate :: k (p (p a b) c) (p a (p b c))
     disassociate :: k (p a (p b c)) (p (p a b) c)
 
 instance Associative (->) (,) where
-        associate ((a,b),c) = (a,(b,c))
-        disassociate (a,(b,c)) = ((a,b),c)
+    associate ((a,b),c) = (a,(b,c))
+    disassociate (a,(b,c)) = ((a,b),c)
 
 instance Associative (->) Either where
-        associate (Left (Left a)) = Left a
-        associate (Left (Right b)) = Right (Left b)
-        associate (Right c) = Right (Right c)
-        disassociate (Left a) = Left (Left a)
-        disassociate (Right (Left b)) = Left (Right b)
-        disassociate (Right (Right c)) = Right c
+    associate (Left (Left a)) = Left a
+    associate (Left (Right b)) = Right (Left b)
+    associate (Right c) = Right (Right c)
+    disassociate (Left a) = Left (Left a)
+    disassociate (Right (Left b)) = Left (Right b)
+    disassociate (Right (Right c)) = Right c
 
 
 -- from Control.Category.Braided -------------------------------------------
