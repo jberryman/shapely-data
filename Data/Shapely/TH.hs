@@ -1,5 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, TemplateHaskell #-}
-module Data.Shapely (
+module Data.Shapely.TH (
 {- |
    This is an experimantal module for converting aribtrary algebraic data types
    into combinations of haskell's primitive product (@(,)@), sum (@Either@),
