@@ -35,11 +35,24 @@ import Control.Applicative() -- Functor instances for (,) and Either
 --       - and, or, sum, product, maximum, minimum
 --       - folds, maps, scans
 --       - sort/insert ?
+-- -------
+-- FUTURE TODOs:
+--   -closed TypeFamilies for simpler instances
+--   -type-level naturals for e.g. 'length;-like functions
+--   -explore relationship to:
+--     -lens
+--     -Arrow
+-- -------
 
+
+-- TODO: see if we can simplify instances by using Only, instead of Either a (a,b)/()
+--
 -- | A singleton inhabited 'Coproduct'. This is an intermediate type useful for
 -- constructing Conproducts, and in our instances (see e.g. 'Tail')
 newtype Only a = Only a
 
+
+-- TODO: consider making all Left parameters and results of sums explicitly () and (a,b)
 
 -- | Deconstructive type functions:
 
@@ -58,8 +71,7 @@ type family Init xs
 type instance Init (xN,()) = ()
 type instance Init (x,(y,zs)) = (x, Init (y,zs)) 
 
-type instance Init (Either x (Either y zs)) = x :<|: Init (Either y zs)
---type instance Init (Either x (Either y zs)) = Either x (Init (Either y zs))
+type instance Init (Either x (Either y zs)) = x :<|: (Init (Either y zs))
 type instance Init (Either x ()) = Only x
 type instance Init (Either x (a,b)) = Only x
 
@@ -70,6 +82,7 @@ type instance Last (x,(y,zs)) = Last (y,zs)
 type instance Last (Either x (Either y zs)) = Last (Either y zs) 
 type instance Last (Either x ()) = ()
 type instance Last (Either x (a,b)) = (a,b)
+type instance Last (Only b) = b
 
 type family t :<|: ts
 --type instance t :<|: ts = NormalConstr (NormalType ts) t ts
@@ -82,71 +95,37 @@ type family xs :|>: x
 type instance () :|>: x = (x,())
 type instance (x0,xs) :|>: x = (x0, xs :|>: x)
 
-type instance Either y zs :|>: x = Either y (Tail (Either x zs) :|>: x)
-type instance Only a :|>: b = Either a b
+type instance Either x0 xs :|>: x = Either x0 (Tail (Either x0 xs) :|>: x)
+type instance Only a :|>: b = Either a b -- TODO: insist on two instances for: b ~ () and b ~ (x,y)?
 
- -- TODO remove class and define as = popr = swap . shiftr
-{-
--- | A class supporting a \"pop\" operation off the right end of a product or
--- coproduct. The equivalent left pop is simply 'id'
-class Poppable xs where
-    popr :: (t ~ NormalConstr (NormalType xs))=> xs -> t (Init xs) (Last xs)
-  --popl = id
 
-instance Poppable (x,()) where
-    popr = swap
+-- TODO: use instance defaulting here for these definitions after they are settled?
+-- TODO: if we combine these methods into bigger classes, we should be able to leave out constraints right?
 
-instance (Poppable (y,zs), NormalType zs ~ Product)=> Poppable (x,(y,zs)) where
-    popr = disassociate . fmap popr
 
-instance Poppable (Either x ()) where
-    popr = id
+-- TODO: a simpler, less general type here:
+-- | Note: @popl@ would be simply @id@.
+--
+-- > popr = swap . shiftr
+popr :: (Symmetric (->) p, Shiftable t, ShiftedR t ~ p a b) => t -> (p b a)
+popr = swap . shiftr
 
-instance Poppable (Either x (a,b)) where
-    popr = id
-
-instance (Poppable (Either y zs))=> Poppable (Either x (Either y zs)) where
-    popr = disassociate . fmap popr
--}
-
--- TODO pushr is just shiftr. So remove this, replace implementation of Shiftable, keep product push function
-{-
--- | A class supporting a \"push\" operation onto the right end of a product or
--- coproduct. The equivalent left push would be simply 'id'
-class Pushable xs x where
-    pushr :: (t ~ NormalConstr (NormalType xs))=> t xs x -> (xs :|>: x)
-    --pushl :: (t ~ NormalConstr (NormalType xs))=> t x xs -> t x xs
- 
-instance Pushable () x where
-    pushr = swap
-
-instance (NormalType xs ~ Product, Pushable xs x)=> Pushable (x0,xs) x where
-    pushr = fmap pushr . associate
-
-instance (NormalType x ~ Product)=> Pushable (Either a ()) x where
-    pushr = associate
-
-instance (NormalType x ~ Product)=> Pushable (Either a (b,c)) x where
-    pushr = associate
-
-instance (Pushable (Either b ts) x)=> Pushable (Either a (Either b ts)) x where
-    pushr = fmap pushr . associate
 
 infixl 5 .|>
 infixl 5 <|.
 
 -- | A convenience operator for appending an element to a product type.
+-- 'Shiftable' generalizes this operation.
 --
 -- > (.|>) = curry pushr
-(.|>) :: (NormalType xs ~ Product, Pushable xs x)=>xs -> x -> (xs :|>: x)
-(.|>) = curry pushr
+(.|>) :: (NormalType xs ~ Product, Shiftable (x,xs))=> xs -> x -> (xs :|>: x)
+xs .|> x = shiftl (x,xs)
 
 -- | A left push for Products.
 --
 -- > (<|.) = (,)
 (<|.) ::  (NormalType xs ~ Product)=> x -> xs -> (x,xs)
 (<|.) = (,)
--}
 
 -- | Class supporting normal type equivalent to list @concat@ function, for
 -- coproducts as well as products
@@ -178,77 +157,55 @@ instance (Concatable ess,Appendable (Either x ys) (Concated ess))=> Concatable (
     nconcat = nappend . fmap nconcat
 
 
--- TODO: every Reversable is Pushable, etc. fix hierarchy so we have cleaner type sigs here
--- | Reversing lists
-class Reversable l where
-    type Reversed l
-    nreverse :: l -> Reversed l
 
-{-
+-- | Reversing Products and Coproducts
+class Reversable t where
+    type Reversed t
+    type Reversed t = Reversed (Tail t) :|>: Head t
+    nreverse :: t -> Reversed t
+
 instance Reversable () where
     type Reversed () = ()
     nreverse = id
 
--- TODO: DEFINE IN TERMS OF SHIFTR AND SHIFTL
--- instance Reversable t where
---     type Reversed t = Reversed (Tail t) :|>: Head t
---     nreverse = shiftl . fmap nreverse -- PROBLEM: no base case!
--- TODO: recreate relevant copy of categories in sub-module, use internally (don't export).
--- TODO: is this efficient? what does this even look like compiled?
--- TODO: how can we avoid: Shiftable (x, Reversed xs) constraint
-instance Reversable (x,xs) where
---instance (NormalType (Reversed xs) ~ Product, Shiftable (x, Reversed xs), Reversable xs)=> Reversable (x,xs) where
-    type Reversed (x,xs) = Reversed xs :|>: x
-    nreverse = shiftl . fmap nreverse
+instance Reversable (Only x) where
+    type Reversed (Only x) = (Only x)
+    nreverse = id
 
-instance Reversable (Either a ()) where
-    type Reversed (Either a ()) = Either () a
-    nreverse = swap
+instance (Reversable xs
+         , Shiftable (x, Reversed xs)
+         )=> Reversable (x,xs) where
+    nreverse = shiftl . fmap nreverse 
 
-instance Reversable (Either a (x,y)) where
-    type Reversed (Either a (x,y)) = Either (x,y) a
-    nreverse = swap
+instance (Reversable xs
+         , Shiftable (Either x (Reversed xs))
+         , (Tail (Either x (Reversed xs)) :|>: x)
+           ~ (Reversed (Tail (Either x xs)) :|>: x) -- TODO improve this?
+         )=> Reversable (Either x xs) where
+    nreverse = shiftl . fmap nreverse 
 
--- TODO switch the ordering of args to pushr... WHICH WOULD GIVE US SHIFTR!
-instance Reversable (Either a (Either x ys)) where
--- instance (NormalType (Either x ys) ~ Coproduct, NormalConstr (NormalType (Reversed (Either x ys))) ~ Either, Shiftable (Either a (Reversed (Either x ys))), Reversable (Either x ys))=> Reversable (Either a (Either x ys)) where
-    type Reversed (Either a (Either x ys)) = Reversed (Either x ys) :|>: a
-    nreverse = shiftl . fmap nreverse
--} ------- TODO try defining more general instances below, in terms of Tail, etc. ------------
+
 
 -- | a class for shifting a sum or product left or right by one element, i.e. a
 -- logical shift
 class Shiftable t where
-    -- type ShiftedL t
-    -- type ShiftedL t = Tail t :|>: Head t
-    -- type ShiftedR t
-    -- type ShiftedR t = Last t :<|: Init t
     shiftl :: t -> ShiftedL t
     shiftr :: t -> ShiftedR t
-
+    
 type ShiftedL t = Tail t :|>: Head t
 type ShiftedR t = Last t :<|: Init t
 
-{-
--- NOTE: Thought about letting this subsume Pushable/Poppable
--- associate $ first swap $ disassociate
-instance (Pushable (Tail s) (Head s), Poppable s)=> Shiftable s where
-    shiftl = pushr . swap
-    shiftr = swap . popr
--}
+swapFront :: Symmetric (->) p => p b (p a c) -> p a (p b c)
+swapFront = associate . first swap . disassociate
 
 instance Shiftable (x,()) where
     shiftl = id
     shiftr = id
 
-swapFront :: Symmetric (->) p => p b (p a c) -> p a (p b c)
-swapFront = associate . first swap . disassociate
-
-
 -- TODO abstract these constraints better:
 instance (Shiftable (y,zs)
         , Shiftable (x, zs)
-        , ShiftedR (y,zs) ~ (Last (y, zs), Init (y, zs))
+        , ShiftedR (y,zs) ~ (Last (y, zs), Init (y, zs)) -- TODO replace with better constraint
         )=> Shiftable (x,(y,zs)) where
     shiftl = fmap shiftl . swapFront
     shiftr = swapFront . fmap shiftr
@@ -261,16 +218,17 @@ instance Shiftable (Either a (x,y)) where
     shiftl = swap
     shiftr = swap
 
-
+-- TODO: these constraints are wrong:
 instance (Shiftable (Either y zs)
         , Shiftable (Either x zs)
-        , ShiftedR (Either y zs) ~ Either (Last (Either y zs)) (Init (Either y zs))
-        -- TODO: how can we espress this and why is this necessary here but not in (,) above?
-        --       if we associate Last with a class that lets us constrain outer constructer to match??
-        --       Or if we make ShiftedL/R associated type synonyms, too?
-        , (Last (Either y zs) :<|: (x :<|: Init (Either y zs))) ~ Either (Last (Either y zs)) (Either x (Init (Either y zs)))
-        )=> 
-        Shiftable (Either x (Either y zs)) where
+        , (Tail (Either x zs) :|>: x)
+          ~ (Tail (Either y zs) :|>: x) -- TODO: how can we make this obvious
+        --- TODO: simplify these constraints:
+        , (Last (Either y zs) :<|: (x :<|: Init (Either y zs))) 
+          ~ Either a0 (Either x c0)
+        , (Last (Either y zs) :<|: Init (Either y zs))
+          ~ Either a0 c0
+        )=> Shiftable (Either x (Either y zs)) where
     shiftl = fmap shiftl . swapFront
     shiftr = swapFront . fmap shiftr
 
