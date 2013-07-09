@@ -1,11 +1,11 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}  --these two for Isomorphic class
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}   -- necessary for Shapely Generics instances
 {-# LANGUAGE TypeOperators #-}       -- for our cons synonym
 {-# LANGUAGE StandaloneDeriving #-}   -- these two for deriving AlsoNormal instances
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableInstances #-}  -- for nested Type families. We intend these to be closed anyway, so no biggie
+{-# LANGUAGE FunctionalDependencies #-}  -- for Homogeneous
 module Data.Shapely.Compose
     where
 
@@ -17,11 +17,21 @@ import Control.Applicative() -- Functor instances for (,) and Either
 -- TODO: CHANGE NAMES TO SIMPLIFIED AND SUGGEST IMPORTING AS:
 --          import Data.Shapely.Compose as Sh
 --       SO WE CAN USE OPERATORS BUT AVOID NAME COLLISION
+--       - 'fill'
+--       - fix Product/Coproduct classes, etc.
+--       - coverage for all of these in tests.hs
 --
--- OTHER FUNCTIONS: (VERY USEFUL; DO NOW)
+-- OTHER FUNCTIONS:
+--   
+--   - factor
+--      e.g. Either (a,bs) (a,cs) --> (a, Either bs cs) ... except several more type funcs required for this
+--        type families we'd probably need here would be easier with a higher-order Mapped type family, but that's not allowed. Maybe the answer to that is here: http://typesandkinds.wordpress.com/2013/04/01/defunctionalization-for-the-win/
+--   - distribute
+--
+--   taking a number arg (implement with sum/product "templates"/peano numbers)
 --     - length type func. (with type nats?)
 --     - splitAt  (product take/drop in terms of this)
---     - popi (product (!!) in terms of this)
+--     - popi (or factori?). product (!!) in terms of this
 --     - replicate
 --
 --   complex, maybe not useful:
@@ -30,22 +40,32 @@ import Control.Applicative() -- Functor instances for (,) and Either
 --     - transpose
 --
 --   products only: (USEFUL; DO LATER)
---     - zips
---     Homogenous only:
+--     - zips ... e.g.:  zip ( (1,(2,())) , ( (True,(False,())) ,  ( ('a',('b'('c',()))) , ()))) == ....
+--         but should we (can we) deal with differing-length prods like zip?  ... type Zipped () (a,b) = () , Zipped (a,b) () = () , Zipped (a,bs) (x,ys) = ( (a,(x,())) , Zipped bs ys) ...or for prods of prods we probably will be wanting a fold on products... oy
+--         note also: above should be named "transpose"
+--     Homogeneous only:
 --       - and, or, sum, product, maximum, minimum
 --       - folds, maps, scans
 --       - sort/insert ?
+--      OR....
+--       - just provide toList? (but fromList isn't possible)
+--
 -- -------
 -- FUTURE TODOs:
---   -closed TypeFamilies for simpler instances
+--   -figure out equivalent of categories' Control.Category.Cartesian. see notes re. replicate & sum/product numerals (templates?)
+--      e.g. (head,(tail,())) &&& [1,2] == (1,([2],())) ... NOTE: equivalent for sums below.
+--           fst/snd would be same function with product "template" argument? 
+--           diag would be replicate, with mask arg. Or could replicate be polymorphic in result, so `(replicate 1 :: (Int,(Int,(Int,()))) ) == (1,(1,(1,())))` ? Call this "fill" and make for coproducts too.
+--   -closed TypeFamilies for simpler instances?
 --   -type-level naturals for e.g. 'length;-like functions
 --   -explore relationship to:
 --     -lens
+--     -vinyl
 --     -Arrow
 -- -------
 
 
--- TODO: see if we can simplify instances by using Only, instead of Either a (a,b)/()
+-- TODO: see if we can simplify instances by using Only and Tail, instead of Either a (a,b)/()
 --
 -- | A singleton inhabited 'Coproduct'. This is an intermediate type useful for
 -- constructing Conproducts, and in our instances (see e.g. 'Tail')
@@ -110,22 +130,6 @@ type instance Only a :|>: b = Either a b -- TODO: insist on two instances for: b
 popr :: (Symmetric (->) p, Shiftable t, ShiftedR t ~ p a b) => t -> (p b a)
 popr = swap . shiftr
 
-
-infixl 5 .|>
-infixl 5 <|.
-
--- | A convenience operator for appending an element to a product type.
--- 'Shiftable' generalizes this operation.
---
--- > (.|>) = curry pushr
-(.|>) :: (NormalType xs ~ Product, Shiftable (x,xs))=> xs -> x -> (xs :|>: x)
-xs .|> x = shiftl (x,xs)
-
--- | A left push for Products.
---
--- > (<|.) = (,)
-(<|.) ::  (NormalType xs ~ Product)=> x -> xs -> (x,xs)
-(<|.) = (,)
 
 -- | Class supporting normal type equivalent to list @concat@ function, for
 -- coproducts as well as products
@@ -275,6 +279,8 @@ instance (Appendable (Either b ts) us)=> Appendable (Either a (Either b ts)) us 
     nappend = fmap nappend . associate
 
 
+-- | Functions on Products
+
 infixr 5 .++.
 -- | A convenience operator for concating two product types.
 -- 
@@ -283,6 +289,60 @@ infixr 5 .++.
 (.++.) = curry nappend
 --TODO: - our classes don't require the first constraint above
 --      - how can we combine multiple clasues?
+
+infixl 5 .|>
+infixl 5 <|.
+-- | A convenience operator for appending an element to a product type.
+-- 'Shiftable' generalizes this operation.
+--
+-- > xs .|> x = shiftl (x,xs)
+(.|>) :: (NormalType xs ~ Product, Shiftable (x,xs))=> xs -> x -> (xs :|>: x)
+xs .|> x = shiftl (x,xs)
+
+-- | A left push for Products.
+--
+-- > (<|.) = (,)
+(<|.) ::  (NormalType xs ~ Product)=> x -> xs -> (x,xs)
+(<|.) = (,)
+
+
+-- | Homogeneous sums/products:
+
+class Homogeneous a p | p -> a where
+    toList :: p -> [a]
+
+instance Homogeneous a () where
+    toList () = []
+
+instance (Homogeneous a bs)=> Homogeneous a (a,bs) where
+    toList (a,bs) = a : toList bs
+
+
+-- TODO add &&& equivalent and define this in terms of it
+-- generalizes `diag`:
+class Replicated a as | as -> a where
+    nreplicate :: a -> as
+
+instance Replicated a () where
+    nreplicate _ = ()
+
+instance (Replicated a as)=> Replicated a (a,as) where
+    nreplicate a = (a,nreplicate a)
+
+-- TODO define ||| equivalent.
+-- constrain to our sum of products, for clarity
+-- generalizes `codiag`:
+class Extract a as | as -> a where
+    extract :: as -> a
+
+instance Extract () () where
+    extract = id
+
+instance Extract (a,bs) (a,bs) where
+    extract = id
+
+instance (Extract a as)=> Extract a (Either a as) where
+    extract = either id extract
 
 
 -- TAGS FOR PRODUCT / SUM TYPES:
