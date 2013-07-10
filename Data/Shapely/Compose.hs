@@ -1,9 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE MultiParamTypeClasses #-}  --these two for Isomorphic class
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts #-}   -- necessary for Shapely Generics instances
-{-# LANGUAGE TypeOperators #-}       -- for our cons synonym
-{-# LANGUAGE StandaloneDeriving #-}   -- these two for deriving AlsoNormal instances
 {-# LANGUAGE UndecidableInstances #-}  -- for nested Type families. We intend these to be closed anyway, so no biggie
 {-# LANGUAGE FunctionalDependencies #-}  -- for Homogeneous
 module Data.Shapely.Compose
@@ -13,13 +10,16 @@ import Data.Shapely
 import Data.Shapely.Category
 import Control.Applicative() -- Functor instances for (,) and Either
 
+import Prelude hiding (replicate,concat,reverse,uncurry,append)
+import qualified Prelude 
+
 
 -- TODO: CHANGE NAMES TO SIMPLIFIED AND SUGGEST IMPORTING AS:
 --          import Data.Shapely.Compose as Sh
 --       SO WE CAN USE OPERATORS BUT AVOID NAME COLLISION
---       - 'fill'
 --       - fix Product/Coproduct classes, etc.
 --       - coverage for all of these in tests.hs
+--       - should <|. be shortend to make creating products easier?  1 <|. 2 <|. 3 <|. ()
 --
 -- OTHER FUNCTIONS:
 --   
@@ -28,7 +28,7 @@ import Control.Applicative() -- Functor instances for (,) and Either
 --        type families we'd probably need here would be easier with a higher-order Mapped type family, but that's not allowed. Maybe the answer to that is here: http://typesandkinds.wordpress.com/2013/04/01/defunctionalization-for-the-win/
 --   - distribute
 --
---   taking a number arg (implement with sum/product "templates"/peano numbers)
+--   taking a numeric arg (implement with sum/product "templates"/peano numbers)
 --     - length type func. (with type nats?)
 --     - splitAt  (product take/drop in terms of this)
 --     - popi (or factori?). product (!!) in terms of this
@@ -44,18 +44,13 @@ import Control.Applicative() -- Functor instances for (,) and Either
 --         but should we (can we) deal with differing-length prods like zip?  ... type Zipped () (a,b) = () , Zipped (a,b) () = () , Zipped (a,bs) (x,ys) = ( (a,(x,())) , Zipped bs ys) ...or for prods of prods we probably will be wanting a fold on products... oy
 --         note also: above should be named "transpose"
 --     Homogeneous only:
---       - and, or, sum, product, maximum, minimum
+--       - and, or, sum, product, maximum, minimum (NO: toList is sufficient for all of these folds)
 --       - folds, maps, scans
 --       - sort/insert ?
---      OR....
---       - just provide toList? (but fromList isn't possible)
 --
 -- -------
 -- FUTURE TODOs:
---   -figure out equivalent of categories' Control.Category.Cartesian. see notes re. replicate & sum/product numerals (templates?)
---      e.g. (head,(tail,())) &&& [1,2] == (1,([2],())) ... NOTE: equivalent for sums below.
---           fst/snd would be same function with product "template" argument? 
---           diag would be replicate, with mask arg. Or could replicate be polymorphic in result, so `(replicate 1 :: (Int,(Int,(Int,()))) ) == (1,(1,(1,())))` ? Call this "fill" and make for coproducts too.
+--   -figure out rest of equivalents of categories' Control.Category.Cartesian. see notes re. replicate & sum/product numerals (templates?)
 --   -closed TypeFamilies for simpler instances?
 --   -type-level naturals for e.g. 'length;-like functions
 --   -explore relationship to:
@@ -135,30 +130,30 @@ popr = swap . shiftr
 -- coproducts as well as products
 class Concatable xs where
     type Concated xs
-    nconcat :: xs -> Concated xs
+    concat :: xs -> Concated xs
 
 instance Concatable () where
     type Concated () = ()
-    nconcat = id
+    concat = id
 
 instance (Concatable yss, Appendable xs (Concated yss), NormalType (Concated yss) ~ Product)=> Concatable (xs,yss) where
     type Concated (xs,yss) = xs :++: Concated yss
-    nconcat = nappend . fmap nconcat
+    concat = append . fmap concat
 
 -- These are the two possible leaf Coproducts at the Last position of
 -- our Either spine:
 instance Concatable (Either () es) where
     type Concated (Either () es) = (Either () es)
-    nconcat = id
+    concat = id
 
 instance Concatable (Either (x,ys) es) where
     type Concated (Either (x,ys) es) = (Either (x,ys) es)
-    nconcat = id
+    concat = id
 
 -- TODO: restrict (Either x ys) to Coproduct
 instance (Concatable ess,Appendable (Either x ys) (Concated ess))=> Concatable (Either (Either x ys) ess) where
     type Concated (Either (Either x ys) ess) = Either x ys :++: Concated ess
-    nconcat = nappend . fmap nconcat
+    concat = append . fmap concat
 
 
 
@@ -166,27 +161,27 @@ instance (Concatable ess,Appendable (Either x ys) (Concated ess))=> Concatable (
 class Reversable t where
     type Reversed t
     type Reversed t = Reversed (Tail t) :|>: Head t
-    nreverse :: t -> Reversed t
+    reverse :: t -> Reversed t
 
 instance Reversable () where
     type Reversed () = ()
-    nreverse = id
+    reverse = id
 
 instance Reversable (Only x) where
     type Reversed (Only x) = (Only x)
-    nreverse = id
+    reverse = id
 
 instance (Reversable xs
          , Shiftable (x, Reversed xs)
          )=> Reversable (x,xs) where
-    nreverse = shiftl . fmap nreverse 
+    reverse = shiftl . fmap reverse 
 
 instance (Reversable xs
          , Shiftable (Either x (Reversed xs))
          , (Tail (Either x (Reversed xs)) :|>: x)
            ~ (Reversed (Tail (Either x xs)) :|>: x) -- TODO improve this?
          )=> Reversable (Either x xs) where
-    nreverse = shiftl . fmap nreverse 
+    reverse = shiftl . fmap reverse 
 
 
 
@@ -241,42 +236,42 @@ instance (Shiftable (Either y zs)
 class Uncurry t r where
     -- | A function capable of consuming the product @t@ and producing @r@.
     type t :->-> r
-    puncurry :: (t :->-> r) -> t -> r
+    uncurry :: (t :->-> r) -> t -> r
 
 instance Uncurry (a,()) r where
     type (a,()) :->-> r = a -> r
-    puncurry f = f . fst
+    uncurry f = f . fst
 
 instance (Uncurry (b,cs) r)=> Uncurry (a,(b,cs)) r where
     type (a,(b,cs)) :->-> r = a -> (b,cs) :->-> r
-    puncurry f = uncurry (puncurry . f)
+    uncurry f = Prelude.uncurry (uncurry . f)
 
 
 -- | Constructive type functions
 
 class (NormalType xs ~ NormalType ys) => Appendable xs ys where -- TODO CONSTRAINT NECESSARY??
     type xs :++: ys   
-    nappend :: (t ~ NormalConstr (NormalType xs))=> t xs ys -> (xs :++: ys)
+    append :: (t ~ NormalConstr (NormalType xs))=> t xs ys -> (xs :++: ys)
 
 instance (NormalType us ~ Product)=> Appendable () us where
     type () :++: us = us 
-    nappend = snd
+    append = snd
 
 instance (NormalType us ~ Product, Appendable ts us)=> Appendable (a,ts) us where
     type (a,ts) :++: us = (a, ts :++: us) 
-    nappend = fmap nappend . associate
+    append = fmap append . associate
 
 instance (NormalType us ~ Coproduct)=> Appendable (Either a ()) us where
     type Either a () :++: us = Either a (Either () us)
-    nappend = associate
+    append = associate
 
 instance (NormalType us ~ Coproduct)=> Appendable (Either a (b,c)) us where
     type Either a (b,c) :++: us = Either a (Either (b,c) us)
-    nappend = associate
+    append = associate
 
 instance (Appendable (Either b ts) us)=> Appendable (Either a (Either b ts)) us where
     type Either a (Either b ts) :++: us = Either a (Either b ts :++: us)
-    nappend = fmap nappend . associate
+    append = fmap append . associate
 
 
 -- | Functions on Products
@@ -284,9 +279,9 @@ instance (Appendable (Either b ts) us)=> Appendable (Either a (Either b ts)) us 
 infixr 5 .++.
 -- | A convenience operator for concating two product types.
 -- 
--- > (.++.) = curry nappend
+-- > (.++.) = curry append
 (.++.) :: (NormalType xs ~ Product, NormalType ys ~ Product, Appendable xs ys)=> xs -> ys -> xs :++: ys
-(.++.) = curry nappend
+(.++.) = curry append
 --TODO: - our classes don't require the first constraint above
 --      - how can we combine multiple clasues?
 
@@ -306,8 +301,11 @@ xs .|> x = shiftl (x,xs)
 (<|.) = (,)
 
 
--- | Homogeneous sums/products:
 
+
+-- | Homogeneous and Cartesian/Arrow-inspired functions
+
+-- TODO: add this to a different class??
 class Homogeneous a p | p -> a where
     toList :: p -> [a]
 
@@ -318,21 +316,49 @@ instance (Homogeneous a bs)=> Homogeneous a (a,bs) where
     toList (a,bs) = a : toList bs
 
 
--- TODO add &&& equivalent and define this in terms of it
--- generalizes `diag`:
+-- | Cartesian
+
+-- it would be nice to be able to put these in the same class or define `diag`
+-- in terms of `fanout`.
+
+-- | "Fill" a product with an initial value. If the "length" of the resulting
+-- product can't be inferred from context, provide a sype signature:
+--
+-- > truths = replicate True :: (Bool,(Bool,(Bool,())))
+--
+-- See also 'extract' for 'Coproduct's
 class Replicated a as | as -> a where
-    nreplicate :: a -> as
+    -- | Equivalent to @diag@ 
+    replicate :: a -> as
 
 instance Replicated a () where
-    nreplicate _ = ()
+    replicate _ = ()
 
 instance (Replicated a as)=> Replicated a (a,as) where
-    nreplicate a = (a,nreplicate a)
+    replicate a = (a,replicate a)
 
--- TODO define ||| equivalent.
--- constrain to our sum of products, for clarity
--- generalizes `codiag`:
+class Fanout a fs | fs -> a where
+    type FannedOut fs
+    -- | equivalent to @(&&&)@
+    fanout :: fs -> (a -> FannedOut fs)
+
+instance (Fanout a fs)=> Fanout a (a -> x,fs) where
+    type FannedOut (a -> x, fs) = (x, FannedOut fs) 
+    fanout (f,fs) a = (f a, fanout fs a)
+
+instance Fanout a () where
+    type FannedOut () = ()
+    fanout () _ = ()
+
+-- | CoCartesian
+
+-- TODO constrain to our sum of products, for clarity
+
+-- | Extract a value from a homogeneous sum.
+--
+-- See also 'replicate' for 'Product's.
 class Extract a as | as -> a where
+    -- | generalizes @codiag@:
     extract :: as -> a
 
 instance Extract () () where
@@ -343,6 +369,40 @@ instance Extract (a,bs) (a,bs) where
 
 instance (Extract a as)=> Extract a (Either a as) where
     extract = either id extract
+
+
+-- putting the product arg on LHS of the FannedIn func gives us more
+-- flexibility (copord doesn't have to be strictly a sum of prods) but makes
+-- inferrence more tricky (a user is probably more likely to be combining
+-- polymorphic functions for application to a generated coproduct)
+class Fanin s c | s -> c where
+    type FannedIn s c
+    -- | Apply a 'Product' of functions of type @x,y,z -> c@ to a 'Coproduct'
+    -- of @x, y, z@, yielding a @c@. E.g.
+    --
+    -- > let s :: Either (Int,()) (Either ([Int],()) ([Int],()))
+    -- >     s = Left (1,()) 
+    -- >  in fanin (id . fst, (sum . fst, (length . fst, ()))) s == 1
+    fanin :: FannedIn s c -> s -> c
+
+{- This won't work 
+instance Fanin (Only a) c where
+    type FannedIn (Only a) c = (a -> c,())
+    fanin (f,()) (Only a) = f a
+-}
+-- so we need to make products the base case for the final term of coproducts::
+instance Fanin () c where
+    type FannedIn () c = ( () -> c , ())
+    fanin = fst
+
+instance Fanin (x,xs) c where
+    type FannedIn (x,xs) c = ((x,xs) -> c, ())
+    fanin = fst
+
+instance (Fanin bs c)=> Fanin (Either a bs) c where
+    type FannedIn (Either a bs) c = (a -> c, FannedIn bs c)
+    --type FannedIn (Either a bs) c = (a -> c, FannedIn (Tail (Either a bs)) c) -- this won't work
+    fanin (f,fs) = either f (fanin fs)
 
 
 -- TAGS FOR PRODUCT / SUM TYPES:

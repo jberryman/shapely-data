@@ -65,3 +65,10 @@ coerce = fromNorm . toNorm
 infixr 1 $$  --is this right?
 ($$) :: (Shapely a, Shapely b)=> (Normal a -> Normal b) -> a -> b
 ($$) f = fromNorm . f . toNorm
+
+-- TODO: polymorphic application combinator of type:
+--    :: (a -> (b,c))     or (a -> Either b c) 
+--    -> (a -> (b,(c,())) or (a -> Either (b,()) (c,())
+-- to provide ease of use with functions from e.g. Arrow
+-- Isn't this basically: fmap toNorm  ?
+--
