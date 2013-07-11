@@ -14,8 +14,7 @@ import Prelude hiding (replicate,concat,reverse,uncurry,append)
 import qualified Prelude 
 
 
---       - fix Product/Coproduct classes, etc.
---       - should <|. be shortend to make creating products easier?  1 <|. 2 <|. 3 <|. ()
+--  TODO - should <|. be shortend to make creating products easier?  1 <|. 2 <|. 3 <|. ()
 --
 -- OTHER FUNCTIONS:
 --   
@@ -54,6 +53,35 @@ import qualified Prelude
 --     -vinyl
 --     -Arrow
 -- -------
+
+--TODO: move this into Data.Shapely (except for Only instances)
+-- | A Product is a list of arbitrary terms constructed with @(,)@, and
+-- terminated by @()@ in the @snd@. e.g.
+--
+-- > prod = (1,(2,(3,())))
+class (NormalConstr t ~ (,))=> Product t
+instance Product ()
+instance (Product ts)=> Product (a,ts)
+
+-- | A coproduct is a non-empty list of 'Product's constructed with @Either@
+-- and terminated by a 'Product' type on the @Right@. e.g.
+--
+-- > coprod = (Right $ Left (1,(2,(3,())))) :: Either (Bool,()) (Either (Int,(Int,(Int,()))) (Char,()))
+--
+-- To simplify type functions and class instances we also define the singleton
+-- coproduct 'Only'.
+class (NormalConstr e ~ Either)=> Coproduct e 
+instance (Product t)=> Coproduct (Only t)
+instance (Product t)=> Coproduct (Either t ())
+instance (Product t, Product (a,b))=> Coproduct (Either t (a,b))
+instance (Product t, Coproduct (Either b c))=> Coproduct (Either t (Either b c))
+
+type family NormalConstr t :: * -> * -> *
+type instance NormalConstr (a,b) = (,)
+type instance NormalConstr () = (,)
+type instance NormalConstr (Either a b) = Either
+type instance NormalConstr (Only a) = Either
+
 
 
 -- TODO: see if we can simplify instances by using Only and Tail, instead of Either a (a,b)/()
@@ -131,7 +159,7 @@ instance Concatable () where
     type Concated () = ()
     concat = id
 
-instance (Concatable yss, Appendable xs (Concated yss), NormalType (Concated yss) ~ Product)=> Concatable (xs,yss) where
+instance (Concatable yss, Appendable xs (Concated yss), Product (Concated yss))=> Concatable (xs,yss) where
     type Concated (xs,yss) = xs :++: Concated yss
     concat = append . fmap concat
 
@@ -242,24 +270,23 @@ instance (Uncurry (b,cs) r)=> Uncurry (a,(b,cs)) r where
 
 
 -- | Constructive type functions
-
-class (NormalType xs ~ NormalType ys) => Appendable xs ys where -- TODO CONSTRAINT NECESSARY??
+class (NormalConstr xs ~ NormalConstr ys) => Appendable xs ys where
     type xs :++: ys   
-    append :: (t ~ NormalConstr (NormalType xs))=> t xs ys -> (xs :++: ys)
+    append :: (t ~ NormalConstr xs)=> t xs ys -> (xs :++: ys)
 
-instance (NormalType us ~ Product)=> Appendable () us where
+instance (Product us)=> Appendable () us where
     type () :++: us = us 
     append = snd
 
-instance (NormalType us ~ Product, Appendable ts us)=> Appendable (a,ts) us where
+instance (Product us, Appendable ts us)=> Appendable (a,ts) us where
     type (a,ts) :++: us = (a, ts :++: us) 
     append = fmap append . associate
 
-instance (NormalType us ~ Coproduct)=> Appendable (Either a ()) us where
+instance (Coproduct us)=> Appendable (Either a ()) us where
     type Either a () :++: us = Either a (Either () us)
     append = associate
 
-instance (NormalType us ~ Coproduct)=> Appendable (Either a (b,c)) us where
+instance (Coproduct us)=> Appendable (Either a (b,c)) us where
     type Either a (b,c) :++: us = Either a (Either (b,c) us)
     append = associate
 
@@ -274,7 +301,7 @@ infixr 5 .++.
 -- | A convenience operator for concating two product types.
 -- 
 -- > (.++.) = curry append
-(.++.) :: (NormalType xs ~ Product, NormalType ys ~ Product, Appendable xs ys)=> xs -> ys -> xs :++: ys
+(.++.) :: (Product xs, Product ys, Appendable xs ys)=> xs -> ys -> xs :++: ys
 (.++.) = curry append
 --TODO: - our classes don't require the first constraint above
 --      - how can we combine multiple clasues?
@@ -285,13 +312,13 @@ infixl 5 <|.
 -- 'Shiftable' generalizes this operation.
 --
 -- > xs .|> x = shiftl (x,xs)
-(.|>) :: (NormalType xs ~ Product, Shiftable (x,xs))=> xs -> x -> (xs :|>: x)
+(.|>) :: (Product xs, Shiftable (x,xs))=> xs -> x -> (xs :|>: x)
 xs .|> x = shiftl (x,xs)
 
 -- | A left push for Products.
 --
 -- > (<|.) = (,)
-(<|.) ::  (NormalType xs ~ Product)=> x -> xs -> (x,xs)
+(<|.) ::  (Product xs)=> x -> xs -> (x,xs)
 (<|.) = (,)
 
 
@@ -399,32 +426,3 @@ instance (Fanin bs c)=> Fanin (Either a bs) c where
     fanin (f,fs) = either f (fanin fs)
 
 
--- TAGS FOR PRODUCT / SUM TYPES:
-
--- TODO: BETTER TO MAKE THIS A CLASS (or add one) SO WE GET:
--- ( Product x )=> ... instead of...  (NormalType x ~ Product)=>
--- THEN WE COULD ADD CONSTRAINTS TO THE Product or Coproduct declaration
-data Product
-data Coproduct
-
-type family NormalType t
-type instance NormalType () = Product
-type instance NormalType (x,ys) = Product
-type instance NormalType (Either a b) = Coproduct
---type instance NormalType (Reversed t) = NormalType t -- ILLEGAL TODO
-
--- TODO: OR MAKE THE ARGUMENT TAKE THE TYPE DIRECTLY, SAME AS ABOVE?
-type family NormalConstr t :: * -> * -> *
-type instance NormalConstr Product = (,)
-type instance NormalConstr Coproduct = Either
-
-{- ASIDE -- ----
-class (NormalConstr t ~ (,))=> Product t
-instance Product ()
-instance (Product ts)=> Product (a,ts)
-
-class (NormalConstr e ~ Either)=> Coproduct e 
-instance (Product t)=> Coproduct (Either t ())
-instance (Product t, Product (a,b))=> Coproduct (Either t (a,b))
-instance (Product t, Coproduct (Either b c))=> Coproduct (Either t (Either b c))
--}
