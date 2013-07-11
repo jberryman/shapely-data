@@ -14,11 +14,7 @@ import Prelude hiding (replicate,concat,reverse,uncurry,append)
 import qualified Prelude 
 
 
--- TODO: CHANGE NAMES TO SIMPLIFIED AND SUGGEST IMPORTING AS:
---          import Data.Shapely.Compose as Sh
---       SO WE CAN USE OPERATORS BUT AVOID NAME COLLISION
 --       - fix Product/Coproduct classes, etc.
---       - coverage for all of these in tests.hs
 --       - should <|. be shortend to make creating products easier?  1 <|. 2 <|. 3 <|. ()
 --
 -- OTHER FUNCTIONS:
@@ -100,7 +96,6 @@ type instance Last (Either x (a,b)) = (a,b)
 type instance Last (Only b) = b
 
 type family t :<|: ts
---type instance t :<|: ts = NormalConstr (NormalType ts) t ts
 type instance x :<|: Only y = Either x y
 type instance x :<|: Either y zs = Either x (Either y zs)
 type instance x :<|: () = (x,())
@@ -150,8 +145,8 @@ instance Concatable (Either (x,ys) es) where
     type Concated (Either (x,ys) es) = (Either (x,ys) es)
     concat = id
 
--- TODO: restrict (Either x ys) to Coproduct
-instance (Concatable ess,Appendable (Either x ys) (Concated ess))=> Concatable (Either (Either x ys) ess) where
+-- TODO: restrict (Either x ys) to Coproduct?
+instance (Concatable ess, Appendable (Either x ys) (Concated ess))=> Concatable (Either (Either x ys) ess) where
     type Concated (Either (Either x ys) ess) = Either x ys :++: Concated ess
     concat = append . fmap concat
 
@@ -217,12 +212,11 @@ instance Shiftable (Either a (x,y)) where
     shiftl = swap
     shiftr = swap
 
--- TODO: these constraints are wrong:
+--- TODO: simplify these constraints:
 instance (Shiftable (Either y zs)
         , Shiftable (Either x zs)
         , (Tail (Either x zs) :|>: x)
-          ~ (Tail (Either y zs) :|>: x) -- TODO: how can we make this obvious
-        --- TODO: simplify these constraints:
+          ~ (Tail (Either y zs) :|>: x)
         , (Last (Either y zs) :<|: (x :<|: Init (Either y zs))) 
           ~ Either a0 (Either x c0)
         , (Last (Either y zs) :<|: Init (Either y zs))
@@ -431,6 +425,6 @@ instance (Product ts)=> Product (a,ts)
 
 class (NormalConstr e ~ Either)=> Coproduct e 
 instance (Product t)=> Coproduct (Either t ())
-instance (Product t, Product b)=> Coproduct (Either t (a,b))
+instance (Product t, Product (a,b))=> Coproduct (Either t (a,b))
 instance (Product t, Coproduct (Either b c))=> Coproduct (Either t (Either b c))
 -}

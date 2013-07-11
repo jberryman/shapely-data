@@ -17,8 +17,12 @@ p = (1,('a',(True,())))
 
 
 -- CONCATABLE
-concated :: (Int,(Char,(Bool,(Int,(Char,(Bool,()))))))
-concated = Sh.concat (p, (p, ()))
+concated_p :: (Int,(Char,(Bool,(Int,(Char,(Bool,()))))))
+concated_p = Sh.concat (p, (p, ()))
+
+concated_s_test = ( Sh.concat $ (Right s  :: Either (Either (Int,()) (Either (Char,()) (Bool,())))  (Either (Int,()) (Either (Char,()) (Bool,()))) ) )
+                    == Right (Right (Right (Right (Right (True,())))))
+
 
 -- REVERSABLE
 s_rev :: Either (Bool,()) (Either (Char,()) (Int,()))
