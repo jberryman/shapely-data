@@ -10,7 +10,7 @@ import Data.Shapely
 import Data.Shapely.Category
 import Control.Applicative() -- Functor instances for (,) and Either
 
-import Prelude hiding (replicate,concat,reverse,uncurry,append)
+import Prelude hiding (replicate,concat,reverse,uncurry)
 import qualified Prelude 
 
 
@@ -54,34 +54,6 @@ import qualified Prelude
 --     -Arrow
 -- -------
 
---TODO: move this into Data.Shapely (except for Only instances)
--- | A Product is a list of arbitrary terms constructed with @(,)@, and
--- terminated by @()@ in the @snd@. e.g.
---
--- > prod = (1,(2,(3,())))
-class (NormalConstr t ~ (,))=> Product t
-instance Product ()
-instance (Product ts)=> Product (a,ts)
-
--- | A coproduct is a non-empty list of 'Product's constructed with @Either@
--- and terminated by a 'Product' type on the @Right@. e.g.
---
--- > coprod = (Right $ Left (1,(2,(3,())))) :: Either (Bool,()) (Either (Int,(Int,(Int,()))) (Char,()))
---
--- To simplify type functions and class instances we also define the singleton
--- coproduct 'Only'.
-class (NormalConstr e ~ Either)=> Coproduct e 
-instance (Product t)=> Coproduct (Only t)
-instance (Product t)=> Coproduct (Either t ())
-instance (Product t, Product (a,b))=> Coproduct (Either t (a,b))
-instance (Product t, Coproduct (Either b c))=> Coproduct (Either t (Either b c))
-
-type family NormalConstr t :: * -> * -> *
-type instance NormalConstr (a,b) = (,)
-type instance NormalConstr () = (,)
-type instance NormalConstr (Either a b) = Either
-type instance NormalConstr (Only a) = Either
-
 
 
 -- TODO: see if we can simplify instances by using Only and Tail, instead of Either a (a,b)/()
@@ -89,6 +61,10 @@ type instance NormalConstr (Only a) = Either
 -- | A singleton inhabited 'Coproduct'. This is an intermediate type useful for
 -- constructing Conproducts, and in our instances (see e.g. 'Tail')
 newtype Only a = Only a
+
+type instance NormalConstr (Only a) = Either
+instance (Product t)=> Coproduct (Only t)
+
 
 
 -- TODO: consider making all Left parameters and results of sums explicitly () and (a,b)
