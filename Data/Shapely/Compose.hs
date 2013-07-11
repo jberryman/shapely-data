@@ -48,8 +48,7 @@ import Prelude hiding (replicate,concat,reverse,uncurry)
 import qualified Prelude 
 
 
---  TODO - should <|. be shortend to make creating products easier?  1 <|. 2 <|. 3 <|. ()
---
+-- TODO?
 -- OTHER FUNCTIONS:
 --   
 --   - factor
@@ -90,7 +89,6 @@ import qualified Prelude
 
 
 
---
 -- | A singleton inhabited 'Coproduct'. This is an intermediate type useful for
 -- constructing Conproducts, and in our instances (see e.g. 'Tail')
 newtype Only a = Only a
@@ -106,7 +104,6 @@ type (:+:) = Either
 
 -- TODO: consider making all Left parameters and results of sums explicitly () and (a,b)
 
--- | Deconstructive type functions:
 
 -- ARE THESE ACTUALLY USEFUL??
 type family Head xs
@@ -315,7 +312,6 @@ instance (Appendable (Either b ts) us)=> Appendable (Either a (Either b ts)) us 
     append = fmap append . associate
 
 
--- | Functions on Products
 
 infixr 5 .++.
 -- | A convenience operator for concating two product types.
@@ -349,7 +345,6 @@ xs |> x = shiftl (x,xs)
 x <! y = (x,(y,()))
 
 
--- | Homogeneous and Cartesian/Arrow-inspired functions
 
 -- TODO: add this to a different class??
 class Homogeneous a p | p -> a where
