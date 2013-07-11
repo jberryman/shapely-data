@@ -9,11 +9,13 @@ module Main
 
 import Data.Shapely.Compose as Sh
 
-s :: Either (Int,()) (Either (Char,()) (Bool,()))
+s :: (Int,()) :+: (Char,()) :+: (Bool,())
+--   Either (Int,()) (Either (Char,()) (Bool,()))
 s = Right (Right (True,()))
 
 p :: (Int,(Char,(Bool,())))
-p = (1,('a',(True,())))
+p = 1 <| 'a' <! True
+--  (1,('a',(True,())))
 
 
 -- CONCATABLE
@@ -54,6 +56,14 @@ test_uncurry = Sh.uncurry (\i c b-> if b then (i,c) else (9,'z')) p  ==  (1,'a')
 appended :: (Int,(Char,(Bool,(Int,(Char,(Bool,()))))))
 appended = p .++. p
 
+appended_s
+  :: Either
+       (Char, ())
+       (Either
+          (Int, ()) (Either (Int, ()) (Either (Char, ()) (Bool, ()))))
+appended_s = let s_ss = (Right s) :: Either ( Either (Char,()) (Int,()) )  ( Either (Int,()) (Either (Char,()) (Bool,())) )
+              in append s_ss
+                  --  == Right (Right (Right (Right (True,()))))
 
 -- Homogeneous
 test_toList = Sh.toList (1,(2,(3,()))) == [1,2,3]

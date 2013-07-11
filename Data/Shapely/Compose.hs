@@ -3,8 +3,42 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}  -- for nested Type families. We intend these to be closed anyway, so no biggie
 {-# LANGUAGE FunctionalDependencies #-}  -- for Homogeneous
-module Data.Shapely.Compose
-    where
+module Data.Shapely.Compose (
+{- |
+Functions for composing and modifying our 'Normal' form types.
+
+These take their names from the familiar functions in Data.List and Prelude,
+but are given more general forms after the constructions in Edward Kmett's
+"categories" package. There are probably many improvements and additions
+possible here.
+
+/NOTE/: The structure of the classes, type functions, and class constraints
+here are likely to change a lot, however the names of individual functions and
+methods and their use should be stable, so hopefully there will be few
+compatibility issues when this module is improved.
+-}
+      Only(..)
+    -- * Operations on 'Product's and 'Coproduct's
+    , Reversable(..)
+    , Shiftable(..)
+    , popr
+    , Appendable(..)
+    , Concatable(..)
+    -- ** Convenience Type synonyms
+    , (:*:), (:+:)
+    -- * Operations on Products:
+    , Uncurry(..)
+    , Homogeneous(..)
+    -- ** Convenience
+    , (.++.), (|>), (<|), (<!)
+    -- * Cartesian and CoCartesian-like
+    -- ** Cartesian
+    , Replicated(..)
+    , Fanout(..)
+    -- ** CoCartesian
+    , Extract(..)
+    , Fanin(..)
+    ) where
 
 import Data.Shapely
 import Data.Shapely.Category
@@ -56,7 +90,6 @@ import qualified Prelude
 
 
 
--- TODO: see if we can simplify instances by using Only and Tail, instead of Either a (a,b)/()
 --
 -- | A singleton inhabited 'Coproduct'. This is an intermediate type useful for
 -- constructing Conproducts, and in our instances (see e.g. 'Tail')
@@ -65,6 +98,10 @@ newtype Only a = Only a
 type instance NormalConstr (Only a) = Either
 instance (Product t)=> Coproduct (Only t)
 
+infixr :+:
+infixr :*:
+type (:*:) = (,)
+type (:+:) = Either
 
 
 -- TODO: consider making all Left parameters and results of sums explicitly () and (a,b)
@@ -86,7 +123,7 @@ type family Init xs
 type instance Init (xN,()) = ()
 type instance Init (x,(y,zs)) = (x, Init (y,zs)) 
 
-type instance Init (Either x (Either y zs)) = x :<|: (Init (Either y zs))
+type instance Init (Either x (Either y zs)) = x :< (Init (Either y zs))
 type instance Init (Either x ()) = Only x
 type instance Init (Either x (a,b)) = Only x
 
@@ -99,34 +136,33 @@ type instance Last (Either x ()) = ()
 type instance Last (Either x (a,b)) = (a,b)
 type instance Last (Only b) = b
 
-type family t :<|: ts
-type instance x :<|: Only y = Either x y
-type instance x :<|: Either y zs = Either x (Either y zs)
-type instance x :<|: () = (x,())
-type instance x :<|: (y,zs) = (x,(y,zs))
+type family t :< ts
+type instance x :< Only y = Either x y
+type instance x :< Either y zs = Either x (Either y zs)
+type instance x :< () = (x,())
+type instance x :< (y,zs) = (x,(y,zs))
 
-type family xs :|>: x
-type instance () :|>: x = (x,())
-type instance (x0,xs) :|>: x = (x0, xs :|>: x)
+type family xs :> x
+type instance () :> x = (x,())
+type instance (x0,xs) :> x = (x0, xs :> x)
 
-type instance Either x0 xs :|>: x = Either x0 (Tail (Either x0 xs) :|>: x)
-type instance Only a :|>: b = Either a b -- TODO: insist on two instances for: b ~ () and b ~ (x,y)?
+type instance Either x0 xs :> x = Either x0 (Tail (Either x0 xs) :> x)
+type instance Only a :> b = Either a b -- TODO: insist on two instances for: b ~ () and b ~ (x,y)?
 
 
 -- TODO: use instance defaulting here for these definitions after they are settled?
--- TODO: if we combine these methods into bigger classes, we should be able to leave out constraints right?
+-- TODO: if we combine these methods into bigger classes, can we omit some constraints and simplify things?
 
 
--- TODO: a simpler, less general type here:
 -- | Note: @popl@ would be simply @id@.
 --
 -- > popr = swap . shiftr
-popr :: (Symmetric (->) p, Shiftable t, ShiftedR t ~ p a b) => t -> (p b a)
+popr :: (Symmetric (->) p, Shiftable t, ShiftedR t ~ p a b) => t -> p b a
 popr = swap . shiftr
 
 
 -- | Class supporting normal type equivalent to list @concat@ function, for
--- coproducts as well as products
+-- 'Coproduct's as well as 'Product's
 class Concatable xs where
     type Concated xs
     concat :: xs -> Concated xs
@@ -159,7 +195,7 @@ instance (Concatable ess, Appendable (Either x ys) (Concated ess))=> Concatable 
 -- | Reversing Products and Coproducts
 class Reversable t where
     type Reversed t
-    type Reversed t = Reversed (Tail t) :|>: Head t
+    type Reversed t = Reversed (Tail t) :> Head t
     reverse :: t -> Reversed t
 
 instance Reversable () where
@@ -177,8 +213,8 @@ instance (Reversable xs
 
 instance (Reversable xs
          , Shiftable (Either x (Reversed xs))
-         , (Tail (Either x (Reversed xs)) :|>: x)
-           ~ (Reversed (Tail (Either x xs)) :|>: x) -- TODO improve this?
+         , (Tail (Either x (Reversed xs)) :> x)
+           ~ (Reversed (Tail (Either x xs)) :> x) -- TODO improve this?
          )=> Reversable (Either x xs) where
     reverse = shiftl . fmap reverse 
 
@@ -190,8 +226,8 @@ class Shiftable t where
     shiftl :: t -> ShiftedL t
     shiftr :: t -> ShiftedR t
     
-type ShiftedL t = Tail t :|>: Head t
-type ShiftedR t = Last t :<|: Init t
+type ShiftedL t = Tail t :> Head t
+type ShiftedR t = Last t :< Init t
 
 swapFront :: Symmetric (->) p => p b (p a c) -> p a (p b c)
 swapFront = associate . first swap . disassociate
@@ -219,18 +255,20 @@ instance Shiftable (Either a (x,y)) where
 --- TODO: simplify these constraints:
 instance (Shiftable (Either y zs)
         , Shiftable (Either x zs)
-        , (Tail (Either x zs) :|>: x)
-          ~ (Tail (Either y zs) :|>: x)
-        , (Last (Either y zs) :<|: (x :<|: Init (Either y zs))) 
+        , (Tail (Either x zs) :> x)
+          ~ (Tail (Either y zs) :> x)
+        , (Last (Either y zs) :< (x :< Init (Either y zs))) 
           ~ Either a0 (Either x c0)
-        , (Last (Either y zs) :<|: Init (Either y zs))
+        , (Last (Either y zs) :< Init (Either y zs))
           ~ Either a0 c0
         )=> Shiftable (Either x (Either y zs)) where
     shiftl = fmap shiftl . swapFront
     shiftr = swapFront . fmap shiftr
 
 -- | A class supporting an N-ary 'uncurry' operation for applying functions to
--- 'Normal' products of matching arity.
+-- 'Normal' 'Product's of matching arity. e.g.
+--
+-- > uncurry (+) (1,(2,())) == 3
 class Uncurry t r where
     -- | A function capable of consuming the product @t@ and producing @r@.
     type t :->-> r
@@ -245,7 +283,13 @@ instance (Uncurry (b,cs) r)=> Uncurry (a,(b,cs)) r where
     uncurry f = Prelude.uncurry (uncurry . f)
 
 
--- | Constructive type functions
+-- | A @(++)@-like append operation on 'Product's and 'Coproduct's. See also
+-- ('.++.'). e.g.
+--
+-- > append ( (1,(2,())) , (3,(4,())) )  ==  (1,(2,(3,(4,()))))
+--
+-- > s :: Either (Bool, ()) (Either (Char, ()) (Either (Int, ()) ()))
+-- > s = append ( Right $ Left (1,()) :: Either  (Either (Bool,()) (Char,()))  (Either (Int,()) ()) )
 class (NormalConstr xs ~ NormalConstr ys) => Appendable xs ys where
     type xs :++: ys   
     append :: (t ~ NormalConstr xs)=> t xs ys -> (xs :++: ys)
@@ -282,22 +326,27 @@ infixr 5 .++.
 --TODO: - our classes don't require the first constraint above
 --      - how can we combine multiple clasues?
 
-infixl 5 .|>
-infixl 5 <|.
+infixl 5 |>
+infixr 5 <| 
+infixr 5 <!
 -- | A convenience operator for appending an element to a product type.
 -- 'Shiftable' generalizes this operation.
 --
--- > xs .|> x = shiftl (x,xs)
-(.|>) :: (Product xs, Shiftable (x,xs))=> xs -> x -> (xs :|>: x)
-xs .|> x = shiftl (x,xs)
+-- > xs |> x = shiftl (x,xs)
+(|>) :: (Product xs, Shiftable (x,xs))=> xs -> x -> (xs :> x)
+xs |> x = shiftl (x,xs)
 
 -- | A left push for Products.
 --
--- > (<|.) = (,)
-(<|.) ::  (Product xs)=> x -> xs -> (x,xs)
-(<|.) = (,)
+-- > (<|) = (,)
+(<|) ::  (Product xs)=> x -> xs -> (x,xs)
+(<|) = (,)
 
-
+-- | Convenience function for combining 'Product' terms, with ('<|'), e.g.
+--
+-- > 
+(<!) :: x -> y -> (x,(y,()))
+x <! y = (x,(y,()))
 
 
 -- | Homogeneous and Cartesian/Arrow-inspired functions
@@ -313,10 +362,9 @@ instance (Homogeneous a bs)=> Homogeneous a (a,bs) where
     toList (a,bs) = a : toList bs
 
 
--- | Cartesian
 
--- it would be nice to be able to put these in the same class or define `diag`
--- in terms of `fanout`.
+-- TODO it would be nice to be able to put these in the same class or define
+-- `diag` in terms of `fanout`.
 
 -- | "Fill" a product with an initial value. If the "length" of the resulting
 -- product can't be inferred from context, provide a sype signature:
@@ -347,21 +395,19 @@ instance Fanout a () where
     type FannedOut () = ()
     fanout () _ = ()
 
--- | CoCartesian
 
--- TODO constrain to our sum of products, for clarity
 
 -- | Extract a value from a homogeneous sum.
 --
 -- See also 'replicate' for 'Product's.
-class Extract a as | as -> a where
+class Product a=> Extract a as | as -> a where
     -- | generalizes @codiag@:
     extract :: as -> a
 
 instance Extract () () where
     extract = id
 
-instance Extract (a,bs) (a,bs) where
+instance (Product bs)=> Extract (a,bs) (a,bs) where
     extract = id
 
 instance (Extract a as)=> Extract a (Either a as) where
