@@ -271,13 +271,17 @@ class Uncurry t r where
     type t :->-> r
     uncurry :: (t :->-> r) -> t -> r
 
-instance Uncurry (a,()) r where
-    type (a,()) :->-> r = a -> r
-    uncurry f = f . fst
+-- | uncurry = const
+instance Uncurry () r where
+    type () :->-> r = r
+    uncurry = const
 
-instance (Uncurry (b,cs) r)=> Uncurry (a,(b,cs)) r where
-    type (a,(b,cs)) :->-> r = a -> (b,cs) :->-> r
+instance (Uncurry bs r)=> Uncurry (a,bs) r where
+    type (a,bs) :->-> r = a -> bs :->-> r
     uncurry f = Prelude.uncurry (uncurry . f)
+
+
+
 
 
 -- | A @(++)@-like append operation on 'Product's and 'Coproduct's. See also
@@ -415,31 +419,40 @@ instance (Extract a as)=> Extract a (Either a as) where
 -- polymorphic functions for application to a generated coproduct)
 class Fanin s c | s -> c where
     type FannedIn s c
-    -- | Apply a 'Product' of functions of type @x,y,z -> c@ to a 'Coproduct'
-    -- of @x, y, z@, yielding a @c@. E.g.
+    -- | Apply an uncurried 'Product' of functions of type @x,y,z,etc -> c@ to a
+    -- 'Coproduct' of @x, y, z@, yielding a @c@. E.g.
     --
-    -- > let s :: Either (Int,()) (Either ([Int],()) ([Int],()))
-    -- >     s = Left (1,()) 
-    -- >  in fanin (id . fst, (sum . fst, (length . fst, ()))) s == 1
+    -- > let s' :: Either  (Int,())  ( Either  ()  ([Int],([Int],())) )
+    -- >     s' = Left (1,()) 
+    -- >  in fanin ((+1), (3, ((length .) . (++), ()))) s'  ==  2
+    --
+    -- This is like (@|||@) and can be thought of as a generalization of
+    -- 'either'.
     fanin :: FannedIn s c -> s -> c
 
-{- This won't work 
-instance Fanin (Only a) c where
-    type FannedIn (Only a) c = (a -> c,())
-    fanin (f,()) (Only a) = f a
--}
 -- so we need to make products the base case for the final term of coproducts::
-instance Fanin () c where
-    type FannedIn () c = ( () -> c , ())
-    fanin = fst
+instance (Uncurry () c)=> Fanin () c where
+    type FannedIn () c = ( () :->-> c , ())
+    fanin = uncurry . fst
 
-instance Fanin (x,xs) c where
-    type FannedIn (x,xs) c = ((x,xs) -> c, ())
-    fanin = fst
+instance (Uncurry (x,xs) c)=> Fanin (x,xs) c where
+    type FannedIn (x,xs) c = ((x,xs) :->-> c, ())
+    fanin = uncurry . fst
 
-instance (Fanin bs c)=> Fanin (Either a bs) c where
-    type FannedIn (Either a bs) c = (a -> c, FannedIn bs c)
-    --type FannedIn (Either a bs) c = (a -> c, FannedIn (Tail (Either a bs)) c) -- this won't work
-    fanin (f,fs) = either f (fanin fs)
+instance (Fanin bs c, Uncurry a c)=> Fanin (Either a bs) c where
+    type FannedIn (Either a bs) c = (a :->-> c, FannedIn bs c)
+    fanin (f,fs) = either (uncurry f) (fanin fs)
 
+{-  Could be simplified to....
+instance (Fanin (Tail (Either a bs)) c, Uncurry a c)=> Fanin (Either a bs) c where
+    type FannedIn (Either a bs) c = (a :->-> c, FannedIn (Tail (Either a bs)) c) -- this won't work
+    fanin (f,fs) = either (uncurry f) (fanin fs) -- <- not quite
 
+instance (Uncurry a c)=> Fanin (Only a) c where
+    type FannedIn (Only a) c = (a :->-> c,())
+    fanin (f,()) (Only a) = uncurry f a
+
+...if we had a function like :: Either a (Either b c) -> Either a (Either b (Only c))
+
+TODO: probably some of these other definitions could as well. e.g. 'Extract'
+-}

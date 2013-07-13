@@ -75,7 +75,9 @@ test_fanin =
         -- the coproduct arg must be unambiguous, but hopefully in practice a
         -- type signature won't be necessary (when e.g. the sum is a
         -- TH-generated instance):
-     fanin (id . fst, (const 2, (\(b,())-> if b then 3 else 0, ()))) s == 3
+    let s' :: Either (Int,()) (Either () ([Int],([Int],())))
+        s' = Left (1,()) 
+     in fanin ((+1), (3, ((length .) . (++), ()))) s' == 2
 
 -- test of inferrence convenience:
 test_replicate = (3  ==) $ (\(x,(y,(z,())))-> x+y+z) $ Sh.replicate 1
