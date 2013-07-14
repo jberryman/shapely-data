@@ -1,6 +1,8 @@
+{-# LANGUAGE TypeOperators #-}  
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}  -- for nested Type families. We intend these to be closed anyway, so no biggie
 {-# LANGUAGE FunctionalDependencies #-}  -- for Homogeneous
 module Data.Shapely.Compose (
