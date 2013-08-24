@@ -23,7 +23,7 @@ compatibility issues when this module is improved.
     -- * Operations on 'Product's and 'Coproduct's
     , Reversable(..)
     , Shiftable(..)
-    , popr
+    , viewr
     , Appendable(..)
     , Concatable(..)
     -- ** Convenience Type synonyms
@@ -51,6 +51,14 @@ import qualified Prelude
 
 
 -- TODO?
+--      - implement fuzzy coerce stuff
+--      - create some examples that re-create GHC generics motivation
+--      - use some scheme to close type classes
+--         - figure out exports
+--      - implement TH stuff
+--
+--
+--
 -- OTHER FUNCTIONS:
 --   
 --   - factor
@@ -153,11 +161,11 @@ type instance Only a :> b = Either a b -- TODO: insist on two instances for: b ~
 -- TODO: if we combine these methods into bigger classes, can we omit some constraints and simplify things?
 
 
--- | Note: @popl@ would be simply @id@.
+-- | Note: @viewl@ would be simply @id@.
 --
--- > popr = swap . shiftr
-popr :: (Symmetric (->) p, Shiftable t, ShiftedR t ~ p a b) => t -> p b a
-popr = swap . shiftr
+-- > viewr = swap . shiftr
+viewr :: (Symmetric (->) p, Shiftable t, ShiftedR t ~ p a b) => t -> p b a
+viewr = swap . shiftr
 
 
 -- | Class supporting normal type equivalent to list @concat@ function, for
@@ -345,8 +353,9 @@ xs |> x = shiftl (x,xs)
 (<|) = (,)
 
 -- | Convenience function for combining 'Product' terms, with ('<|'), e.g.
+-- @0 <| 1 <| 2 <! 3@
 --
--- > 
+-- > x <! y = (x,(y,()))
 (<!) :: x -> y -> (x,(y,()))
 x <! y = (x,(y,()))
 
@@ -432,7 +441,7 @@ class Fanin s c | s -> c where
     -- 'either'.
     fanin :: FannedIn s c -> s -> c
 
--- so we need to make products the base case for the final term of coproducts::
+-- so we need to make products the base case for the final term of coproducts:
 instance (Uncurry () c)=> Fanin () c where
     type FannedIn () c = ( () :->-> c , ())
     fanin = uncurry . fst
@@ -445,7 +454,7 @@ instance (Fanin bs c, Uncurry a c)=> Fanin (Either a bs) c where
     type FannedIn (Either a bs) c = (a :->-> c, FannedIn bs c)
     fanin (f,fs) = either (uncurry f) (fanin fs)
 
-{-  Could be simplified to....
+{- TODO: Could be simplified to....
 instance (Fanin (Tail (Either a bs)) c, Uncurry a c)=> Fanin (Either a bs) c where
     type FannedIn (Either a bs) c = (a :->-> c, FannedIn (Tail (Either a bs)) c) -- this won't work
     fanin (f,fs) = either (uncurry f) (fanin fs) -- <- not quite
@@ -456,5 +465,19 @@ instance (Uncurry a c)=> Fanin (Only a) c where
 
 ...if we had a function like :: Either a (Either b c) -> Either a (Either b (Only c))
 
-TODO: probably some of these other definitions could as well. e.g. 'Extract'
+Probably some of these other definitions could as well. e.g. 'Extract'
+
+----- This might work:
+
+class EitherTail b where
+    eitherTail :: (a -> c) -> (Tail (Either a b) -> c) -> Either a b -> c
+
+instance EitherTail (x,y) where
+    eitherTail f g = either f g . fmap Only
+
+instance EitherTail (Either x y) where
+    eitherTail = either
+
+fmapTail :: (EitherTail b)=> (Tail (Either a b) -> b') -> Either a b -> Either a b'
+fmapTail f = eitherTail Left (Right . f)
 -}
