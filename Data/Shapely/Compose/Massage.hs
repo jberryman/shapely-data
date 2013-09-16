@@ -59,19 +59,9 @@ instance (Massage s' l, PopSingle a (x,y) s')=> Massage (x,y) (a,l) where
 --  - most record types only make sense for products (since you get partial funcs otherwise)
 --  - generally sum types are pattern-matched against.
 
--- instance (Massage s (Either t ts)
---          , Massage (Tail (Either s ss)) (Either t ts)
---          , EitherTail ss
---          )=> Massage (Either s ss) (Either t ts) where
---     massage = eitherTail massage massage -- EITHERTAIL NOT NECESSARY! as final will be: 
---                                          --    (x,y) (Either t ts)
 instance (Massage s (Either t ts), Massage ss (Either t ts)
          )=> Massage (Either s ss) (Either t ts) where
     massage = either massage massage
-
--- UNNECESSARY!:
--- instance (Massage p (Either t ts))=> Massage (Only p) (Either t ts) where
---     massage (Only p) = massage p  
 
 -- base cases:
 instance (HasAny (x,y) (Tail (Either (x,y) ts)) No)=> Massage (x,y) (Either (x,y) ts) where
@@ -99,9 +89,4 @@ instance Massage (x,y) (Only (x,y)) where
 -- we want to treat source as sum of TIPs when target is prod:
 instance (Massage s (x,y), Massage ss (x,y))=> Massage (Either s ss) (x,y) where
     massage = either massage massage
-
--- UNNECESSARY!:
--- instance (Massage s (x,y))=> Massage (Only s) (x,y) where
---     massage (Only s) = massage s
-
 
