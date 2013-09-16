@@ -3,137 +3,30 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE OverlappingInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
+module Data.Shapely.Compose.Massage
+    where
 
-import Data.Shapely
 import Data.Shapely.Compose
 
-{-
-class HOccurs e l
- where
-  hOccurs :: l -> e
+-- An internal module mostly to keep use of OverlappingInstances isolated
 
 
-instance ( Product l
-         , HOccursNot e l
-         )
-           => HOccurs e (e,l)
- where
-  hOccurs (e,_) = e
-
-instance ( HOccurs e l
-         , Product l
-         )
-           => HOccurs e (e',l)
- where
-  hOccurs  (_,l) = hOccurs l
-
-  -}
-
-class  TypeEq x y b | x y -> b
-instance TypeEq x x Yes
-instance b ~ No => TypeEq x y b
-
-
-
-{- TO BEAT POLYMORPHISM, can we use this?
-class TypeCast x y | x -> y, y -> x
- where
-  typeCast :: x -> y
--}
 
 data Yes = Yes deriving (Show,Eq)
 data No  = No deriving (Show,Eq)
 
--- testing:
-type family Not b
-type instance Not Yes = No
-type instance Not No = Yes
-
------ THIS ISN'T NECESSARY PROBABLY:
-
-class HasSingle a l b | a l -> b 
-  where
-    hasSingle :: a -> l -> b
-
-{-
-instance (HasAny a l No)=> HasSingle a (a,l) Yes 
-  where
-    hasSingle _ _ = Yes
--}
-instance (HasAny a l b', b ~ Not b')=> HasSingle a (a,l) b
-  where
-    hasSingle _ _ = undefined -- THIS METHOD PROBABLY NOT NECESSARY
-
-instance (HasSingle a l b)=> HasSingle a (x,l) b ------ or b ~ b'  ?
-  where
-    hasSingle a (_,l) = hasSingle a l
-
-instance HasSingle a () No
-  where
-    hasSingle _ _ = No
-
--- --------------
-
 class HasAny a l b | a l -> b
-  where
-    hasAny :: a -> l -> b -- METHOD UNNECESSARY
 
 instance HasAny a (a,l) Yes
-  where
-    hasAny _ _ = Yes
-
 instance (HasAny a l b)=> HasAny a (x,l) b
 -- instance (b ~ b', HasAny a l b')=> HasAny a (x,l) b
-  where
-    hasAny a (_,l) = hasAny a l
-
 instance HasAny a () No
-  where
-    hasAny _ _ = No
 
 -- for 'Coproduct's:
 instance HasAny p (Either p ps) Yes
-  where
-    hasAny _ _ = Yes
-
 instance (HasAny a (Tail (Either x l)) b)=> HasAny a (Either x l) b
-    where
-      hasAny = undefined
-
 instance HasAny p (Only p) Yes
-  where
-    hasAny _ _ = Yes
 instance (b ~ No)=> HasAny p (Only x) b
-  where
-    hasAny _ _ = No
-
--- --------------
-
-{-
-class (HasSingle a l Yes)=> PopType a l where -- NEED to use another param, not typefunc here
-    type Sans l a
-    popOne :: l -> (a, Sans l a)
-
-instance PopType a (a,l) where
-    type Sans (a,l) a = l
-    popOne (a,l) = (a,l)
-
-instance (HasSingle a l Yes)=> PopType a (x,l) where
-    type Sans (x,l) a = (x, Sans l a)
-    popOne (x,l) = let (a,l) = popOne l
-                    in (a, (x,l))
-                    -}
-
--- --------------
-
-class GetSingle a l where
-    getSingle :: l -> a
-
-instance (HasAny a l No)=> GetSingle a (a,l) where
-    getSingle (a,_) = a
-
-instance (GetSingle a l)=> GetSingle a (x,l) where
-    getSingle (_,l) = getSingle l
 
 
 -- TODO: rename "viewType"
@@ -151,42 +44,7 @@ instance (PopSingle a l l', (x,l') ~ xl')=> PopSingle a (x,l) xl' where
 
 
 
--- --------------
--- TODO: I think we need getSingle to "pop" so that we can do instance ConvertProduct () ()
-{-
-class ConvertProduct s t where
-    fuzzProd :: s -> t
-
-instance ConvertProduct s () where
-    fuzzProd _ = ()
-
--- product -> product is BIJECTION
--- coproduct -> coproduct is TOTAL SURJECTIVE
-
--- THIS DISALLOWS DUPLICATE ELEMENTS IN THE SOURCE - good, no ambiguity
--- THIS ALLOWS DROPPING ELEMENTS FROM SOURCE       - BAD! all sources are valid for the target ()
--- THIS ALLOWS DUPLICATE ELEMENTS IN THE TARGET    - bad! this is probably never useful
-instance (ConvertProduct s l, GetSingle a s)=> ConvertProduct s (a,l) where
-    fuzzProd s = (getSingle s, fuzzProd s)
--}
-
-class ConvertProduct s t where
-    fuzzProd :: s -> t
-
-instance ConvertProduct () () where
-    fuzzProd () = ()
-
--- product   -> product is BIJECTION
--- coproduct -> coproduct is TOTAL SURJECTIVE (product should be treated as singleton coproduct in this respect)
---    ...and provide special cases for products in either source or target above, 
---    in which case we treat as singleton coproduct.
-instance (ConvertProduct s' l, PopSingle a s s')=> ConvertProduct s (a,l) where
-    fuzzProd = fmap fuzzProd . popSingle
-
---------- Now we'll try general convert:
-
 --TODO: restrict these to products/coproduct classes
-
 class Massage s t where
     massage :: s -> t
 
@@ -225,8 +83,8 @@ instance (Massage (x,y) (Tail (Either t ts))
          )=> Massage (x,y) (Either t ts) where
     -- massage = Right . unwrapOnly . massage
 -}
--- MAYBE WE CAN MAKE 'ONLY' INJECTIVE ASSOC. DATA
--- OR WE CAN MAKE MassageProduct MassageCoproduct helper classes
+-- TODO MAYBE WE CAN MAKE 'ONLY' INJECTIVE ASSOC. DATA
+-- INSTEAD OF MassageProduct MassageCoproduct helper classes
 --      
 instance (MassageCoproduct (x,y) ts)=> Massage (x,y) (Either t ts) where
     -- Drop into a 'massage' that observers product ordering, for when we
@@ -255,7 +113,8 @@ instance (Massage s (x,y), Massage ss (x,y))=> Massage (Either s ss) (x,y) where
 -- instance (Massage s (x,y))=> Massage (Only s) (x,y) where
 --     massage (Only s) = massage s
 
-{-
+{- SCRATCH....
+ 
 -- TODO maybe move into eitherTail class?
 --      what about products?
 class Untail a t where
@@ -269,7 +128,8 @@ instance Untail a (Only p) where
 instance Untail a (Either p ps) where
     type Untailed a (Either p ps) = Either a (Either p ps)
     untail = Right
-    -}
+
+-- or...
 
 class UnwrapOnly t where
     type UnwrappedOnly t
@@ -282,3 +142,4 @@ instance UnwrapOnly (Only t) where
 instance UnwrapOnly (Either p ps) where
     type UnwrappedOnly (Either p ps) = Either p ps
     unwrapOnly = id
+     -}
