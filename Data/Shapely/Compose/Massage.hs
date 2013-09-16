@@ -55,8 +55,7 @@ instance (Massage s' l, PopSingle a (x,y) s')=> Massage (x,y) (a,l) where
     massage = fmap massage . popSingle
 
 -------------
--- we might need to insist on only fuzzy coproducts (with product ordering being significant)
--- THIS MIGHT BE ALLRIGHT, BECAUSE:
+-- THIS IS ALLRIGHT, BECAUSE:
 --  - most record types only make sense for products (since you get partial funcs otherwise)
 --  - generally sum types are pattern-matched against.
 
@@ -78,14 +77,6 @@ instance (Massage s (Either t ts), Massage ss (Either t ts)
 instance (HasAny (x,y) (Tail (Either (x,y) ts)) No)=> Massage (x,y) (Either (x,y) ts) where
     massage = Left
 
-{-
-instance (Massage (x,y) (Tail (Either t ts))
-         )=> Massage (x,y) (Either t ts) where
-    -- massage = Right . unwrapOnly . massage
--}
--- TODO MAYBE WE CAN MAKE 'ONLY' INJECTIVE ASSOC. DATA
--- INSTEAD OF MassageProduct MassageCoproduct helper classes
---      
 instance (MassageCoproduct (x,y) ts)=> Massage (x,y) (Either t ts) where
     -- Drop into a 'massage' that observers product ordering, for when we
     -- hit the base case (x,y) (x',y'):
@@ -113,33 +104,4 @@ instance (Massage s (x,y), Massage ss (x,y))=> Massage (Either s ss) (x,y) where
 -- instance (Massage s (x,y))=> Massage (Only s) (x,y) where
 --     massage (Only s) = massage s
 
-{- SCRATCH....
- 
--- TODO maybe move into eitherTail class?
---      what about products?
-class Untail a t where
-    type Untailed a t
-    untail :: t -> Untailed a t
 
-instance Untail a (Only p) where
-    type Untailed a (Only p) = Either a p
-    untail (Only p) = Right p
-
-instance Untail a (Either p ps) where
-    type Untailed a (Either p ps) = Either a (Either p ps)
-    untail = Right
-
--- or...
-
-class UnwrapOnly t where
-    type UnwrappedOnly t
-    unwrapOnly :: t -> UnwrappedOnly t
-
-instance UnwrapOnly (Only t) where
-    type UnwrappedOnly (Only t) = t
-    unwrapOnly (Only p) =  p
-
-instance UnwrapOnly (Either p ps) where
-    type UnwrappedOnly (Either p ps) = Either p ps
-    unwrapOnly = id
-     -}
