@@ -102,11 +102,13 @@ instance (Shapely a, Shapely b, Normal a ~ Normal b)=> Isomorphic a b
 coerce :: (Isomorphic a b)=> a -> b
 coerce = fromNorm . toNorm
 
--- | A \"fuzzy\" conversion function.
+-- | A \"fuzzy\" coerce function, supporting collapsing and re-ordering of
+-- 'Coproduct' types, and treating 'Product's like sets (a la \"type-indexed
+-- products\") in a sane manner.
 --
 -- See 'Massageable' for more details on how this conversion works.
 --
--- > convert a = massageNormal $$ a
+-- > massage a = massageNormal $$ a
 massage :: (Shapely a, Shapely b, Massageable (Normal a) (Normal b)) => a -> b
 massage a = massageNormal $$ a
 

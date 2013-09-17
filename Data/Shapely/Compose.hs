@@ -5,9 +5,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}  -- for nested Type families. We intend these to be closed anyway, so no biggie
 {-# LANGUAGE FunctionalDependencies #-}  -- for Homogeneous
-  -- For somewhat experimental 'masage' functionality;
-  -- TODO probably move this to an internal module to make sure
-  -- OverlappingInstances don't find there way into other parts
+
+-- TODO: CONSIDER CHANGING NAME TO : Normal
 module Data.Shapely.Compose (
 {- |
 Functions for composing and modifying our 'Normal' form types.
@@ -62,18 +61,12 @@ import qualified Prelude
 
 
 -- TODO?
---      - implement fuzzy coerce stuff
---          - figure out naming and module organaization for this an current 'coerce' function.
---              - keep OverlappingInstances out of main Compose module (hidden module we import && reexport?)
---              - export 'massage' in Data.Shapely.Compose
---              - define convert a = massage $$ a, export in Data.Shapely
---              - export both in Data.Shapely
---
---          - create thorough tests
+--          - create thorough tests for 'massage'
+--          - finish documenting massage
+--      - implement TH stuff
 --      - create some examples that re-create GHC generics motivation
 --      - use some scheme to close type classes
 --         - figure out exports
---      - implement TH stuff
 --      - add derived instaces for all built-in types
 --          - create tests for each of those types
 --
