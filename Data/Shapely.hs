@@ -30,13 +30,14 @@ module Data.Shapely (
 -}
       Product(..), Coproduct(..)
     , Shapely(..), AlsoNormal(..)
-    , Isomorphic(..), coerce
+    , Isomorphic(..), coerce, massage
     , ($$)
     ) where
 
 -- TODO: export TH functionality here
 --import Data.Shapely.TH
 import Data.Shapely.Compose.Classes
+import Data.Shapely.Compose.Massageable
 
 
 -- | Instances of the 'Shapely' class can be converted to and from a 'Normal'
@@ -91,7 +92,8 @@ deriving instance (Read (Normal a))=> Read (AlsoNormal a)
 class (Shapely a, Shapely b, Normal a ~ Normal b)=> Isomorphic a b
 instance (Shapely a, Shapely b, Normal a ~ Normal b)=> Isomorphic a b
 
--- TODO consider name change to avoid conflict with GHC 7.8 newtype 'coerce' function?
+-- TODO -consider name change to avoid conflict with GHC 7.8 newtype 'coerce' function?
+--      -make method of Isomorphic class?
 -- | Convert a type @a@ to an isomorphic type @b@.
 --
 -- > coerce = fromNorm . toNorm
@@ -99,6 +101,14 @@ instance (Shapely a, Shapely b, Normal a ~ Normal b)=> Isomorphic a b
 -- See 'massage' for a more powerful and flexible conversion function.
 coerce :: (Isomorphic a b)=> a -> b
 coerce = fromNorm . toNorm
+
+-- | A \"fuzzy\" conversion function.
+--
+-- See 'Massageable' for more details on how this conversion works.
+--
+-- > convert a = massageNormal $$ a
+massage :: (Shapely a, Shapely b, Massageable (Normal a) (Normal b)) => a -> b
+massage a = massageNormal $$ a
 
 -- | Apply a function on the 'Normal' representation of a type to an ordinary
 -- value.

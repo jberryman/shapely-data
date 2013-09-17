@@ -3,7 +3,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE OverlappingInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
-module Data.Shapely.Compose.Massage
+module Data.Shapely.Compose.Massageable
     where
 
 import Data.Shapely.Compose.Classes
@@ -47,48 +47,48 @@ instance (PopSingle a l l', (x,l') ~ xl')=> PopSingle a (x,l) xl' where
 
 
 --TODO: restrict these to products/coproduct classes
-class Massage s t where
-    massage :: s -> t
+class Massageable s t where
+    massageNormal :: s -> t
 
-instance Massage () () where
-    massage = id
+instance Massageable () () where
+    massageNormal = id
 
-instance (Massage s' l, PopSingle a (x,y) s')=> Massage (x,y) (a,l) where
-    massage = fmap massage . popSingle
+instance (Massageable s' l, PopSingle a (x,y) s')=> Massageable (x,y) (a,l) where
+    massageNormal = fmap massageNormal . popSingle
 
 -------------
 -- THIS IS ALLRIGHT, BECAUSE:
 --  - most record types only make sense for products (since you get partial funcs otherwise)
 --  - generally sum types are pattern-matched against.
 
-instance (Massage s (Either t ts), Massage ss (Either t ts)
-         )=> Massage (Either s ss) (Either t ts) where
-    massage = either massage massage
+instance (Massageable s (Either t ts), Massageable ss (Either t ts)
+         )=> Massageable (Either s ss) (Either t ts) where
+    massageNormal = either massageNormal massageNormal
 
 -- base cases:
-instance (HasAny (x,y) (Tail (Either (x,y) ts)) No)=> Massage (x,y) (Either (x,y) ts) where
-    massage = Left
+instance (HasAny (x,y) (Tail (Either (x,y) ts)) No)=> Massageable (x,y) (Either (x,y) ts) where
+    massageNormal = Left
 
-instance (MassageCoproduct (x,y) ts)=> Massage (x,y) (Either t ts) where
+instance (MassageableCoproduct (x,y) ts)=> Massageable (x,y) (Either t ts) where
     -- Drop into a 'massage' that observers product ordering, for when we
     -- hit the base case (x,y) (x',y'):
-    massage = massageCoproduct
+    massageNormal = massageCoproduct
 
 -- HELPER. unexported.
-class MassageCoproduct p ts where
+class MassageableCoproduct p ts where
     massageCoproduct :: p -> ts
-instance MassageCoproduct (x,y) (x,y) where
+instance MassageableCoproduct (x,y) (x,y) where
     massageCoproduct = id
-instance MassageCoproduct (x,y) (Either (x,y) ts) where
+instance MassageableCoproduct (x,y) (Either (x,y) ts) where
     massageCoproduct = Left
-instance (MassageCoproduct (x,y) ts)=> MassageCoproduct (x,y) (Either t ts) where
+instance (MassageableCoproduct (x,y) ts)=> MassageableCoproduct (x,y) (Either t ts) where
     massageCoproduct = Right . massageCoproduct
 
 
-instance Massage (x,y) (Only (x,y)) where
-    massage = Only
+instance Massageable (x,y) (Only (x,y)) where
+    massageNormal = Only
 
 -- we want to treat source as sum of TIPs when target is prod:
-instance (Massage s (x,y), Massage ss (x,y))=> Massage (Either s ss) (x,y) where
-    massage = either massage massage
+instance (Massageable s (x,y), Massageable ss (x,y))=> Massageable (Either s ss) (x,y) where
+    massageNormal = either massageNormal massageNormal
 
