@@ -6,65 +6,76 @@
 {-# LANGUAGE TypeOperators #-}       -- for our cons synonym
 {-# LANGUAGE StandaloneDeriving #-}   -- these two for deriving AlsoNormal instances
 {-# LANGUAGE UndecidableInstances #-}
-module Data.Shapely
-    where
+module Data.Shapely (
+{- | 
+/Issues and Limitations:/  -- TODO remove some of these
+.
+  - Users can't express recursive structure of types without depending on this
+    for 'AlsoNormal'
+.
+  - This is probably not useful for people using records as their interface,
+    since they're treating product types as sets of terms where order is not
+    significant
+.
+  - This new way of working with types presents some awkwardness in that the
+    ordering of constructors in a 'Coproduct' type becomes significant (we
+    are used to ordering of product terms being significant in pattern-
+    matching).
+
+/Sources, Inspiration, Prior Art/:  --TODO fill this out
+
+  - ekmett's 'categories' package
+
+  - HList
+-}
+      Product(..), Coproduct(..)
+    , Shapely(..), AlsoNormal(..)
+    , Isomorphic(..), coerce
+    , ($$)
+    ) where
 
 -- TODO: export TH functionality here
 --import Data.Shapely.TH
-
-
--- | A Product is a list of arbitrary terms constructed with @(,)@, and
--- terminated by @()@ in the @snd@. e.g.
---
--- > prod = (1,(2,(3,())))
-class (NormalConstr t ~ (,))=> Product t
-instance Product ()
-instance (Product ts)=> Product (a,ts)
-
--- | A coproduct is a non-empty list of 'Product's constructed with @Either@
--- and terminated by a 'Product' type on the @Right@. e.g.
---
--- > coprod = (Right $ Left (1,(2,(3,())))) :: Either (Bool,()) (Either (Int,(Int,(Int,()))) (Char,()))
---
--- To simplify type functions and class instances we also define the singleton
--- coproduct 'Only'.
-class (NormalConstr e ~ Either)=> Coproduct e 
-instance (Product t)=> Coproduct (Either t ())
-instance (Product t, Product (a,b))=> Coproduct (Either t (a,b))
-instance (Product t, Coproduct (Either b c))=> Coproduct (Either t (Either b c))
-
-type family NormalConstr t :: * -> * -> *
-type instance NormalConstr (a,b) = (,)
-type instance NormalConstr () = (,)
-type instance NormalConstr (Either a b) = Either
-
+import Data.Shapely.Compose.Classes
 
 
 -- | Instances of the 'Shapely' class can be converted to and from a 'Normal'
 -- representation, made up of @(,)@, @()@ and @Either@.
 class Shapely a where
-    -- | A @Shapely@ instances "normal form" representation consisting of
-    -- nested product, sum and unit types. TODO: document how we do that here
+    -- | A @Shapely@ instances \"normal form\" representation, consisting of
+    -- nested product, sum and unit types. Types with a single constructor will
+    -- be given a 'Product' Normal representation, where types with more than
+    -- one constructor will be 'Coproduct's. 
+    --
+    -- See the documentation for 'mkShapely', and the instances defined here
+    -- for details.
     type Normal a
     toNorm :: a -> Normal a
     fromNorm :: Normal a -> a
 
--- | Note, the normal form for a tuple is not itself, unlike @Either@ and @()@.
+-- | Note, the normal form for a tuple is not itself
 instance Shapely (x,y) where
     type Normal (x,y) = (x,(y,()))
     toNorm (x,y) = (x,(y,()))
     fromNorm (x,(y,())) = (x,y)
 
-instance Shapely (Either x y) where
-    type Normal (Either x y) = Either x y
-    toNorm = id
-    fromNorm = id
-
+-- Syntactically we can think of the type constructor (in this case (), but
+-- usually, e.g. "Foo") becoming (), and getting pushed to the bottom of the
+-- stack of its terms (in this case there aren't any).
 instance Shapely () where  
     type Normal () = ()
     toNorm = id
     fromNorm = id
----- TODO: more instances by hand. Check their equivalents in tests of TH code. -----
+
+-- Here, again syntactically, both constructors Left and Right become `()`, and
+-- we replace `|` with `Either` creating a sum of products.
+instance Shapely (Either x y) where
+    type Normal (Either x y) = Either (x,()) (y,())
+    toNorm = let f = flip (,) () in either (Left . f) (Right . f)
+    fromNorm = either (Left . fst) (Right . fst)
+  --fromNorm = Sh.fanin (Left,(Right,())).
+
+---- TODO: more instances by hand. Check their equivalents in tests of TH code by using a newtype wrapper. -----
 
 -- TODO: alternate names: Another, ChildNormal, RecNormal
 -- | A wrapper for recursive child occurences of a 'Normal'-ized type
@@ -80,9 +91,12 @@ deriving instance (Read (Normal a))=> Read (AlsoNormal a)
 class (Shapely a, Shapely b, Normal a ~ Normal b)=> Isomorphic a b
 instance (Shapely a, Shapely b, Normal a ~ Normal b)=> Isomorphic a b
 
+-- TODO consider name change to avoid conflict with GHC 7.8 newtype 'coerce' function?
 -- | Convert a type @a@ to an isomorphic type @b@.
 --
 -- > coerce = fromNorm . toNorm
+--
+-- See 'massage' for a more powerful and flexible conversion function.
 coerce :: (Isomorphic a b)=> a -> b
 coerce = fromNorm . toNorm
 
@@ -94,9 +108,3 @@ infixr 1 $$  --is this right?
 ($$) :: (Shapely a, Shapely b)=> (Normal a -> Normal b) -> a -> b
 ($$) f = fromNorm . f . toNorm
 
--- TODO: polymorphic application combinator of type:
---    :: (a -> (b,c))     or (a -> Either b c) 
---    -> (a -> (b,(c,())) or (a -> Either (b,()) (c,())
--- to provide ease of use with functions from e.g. Arrow
--- Isn't this basically: fmap toNorm  ?
---

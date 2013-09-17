@@ -6,10 +6,12 @@
 module Data.Shapely.Compose.Massage
     where
 
-import Data.Shapely.Compose
+import Data.Shapely.Compose.Classes
 
 -- An internal module mostly to keep use of OverlappingInstances isolated
 
+-- needs: Coproduct/Product classes
+--        Tail
 
 
 data Yes = Yes deriving (Show,Eq)

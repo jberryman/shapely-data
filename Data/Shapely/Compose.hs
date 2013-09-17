@@ -5,6 +5,9 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}  -- for nested Type families. We intend these to be closed anyway, so no biggie
 {-# LANGUAGE FunctionalDependencies #-}  -- for Homogeneous
+  -- For somewhat experimental 'masage' functionality;
+  -- TODO probably move this to an internal module to make sure
+  -- OverlappingInstances don't find there way into other parts
 module Data.Shapely.Compose (
 {- |
 Functions for composing and modifying our 'Normal' form types.
@@ -20,6 +23,7 @@ methods and their use should be stable, so hopefully there will be few
 compatibility issues when this module is improved.
 -}
       Only(..)
+
     -- * Operations on 'Product's and 'Coproduct's
     , Reversable(..)
     , Shiftable(..)
@@ -28,11 +32,13 @@ compatibility issues when this module is improved.
     , Concatable(..)
     -- ** Convenience Type synonyms
     , (:*:), (:+:)
+
     -- * Operations on Products:
     , Uncurry(..)
     , Homogeneous(..)
     -- ** Convenience
     , (.++.), (|>), (<|), (<!)
+
     -- * Cartesian and CoCartesian-like
     -- ** Cartesian
     , Replicated(..)
@@ -40,10 +46,15 @@ compatibility issues when this module is improved.
     -- ** CoCartesian
     , Extract(..)
     , Fanin(..)
+
+    -- * Product and Coproduct Conversions
+    , Massage(..)
     ) where
 
 import Data.Shapely
 import Data.Shapely.Category
+import Data.Shapely.Compose.Classes
+import Data.Shapely.Compose.Massage
 import Control.Applicative() -- Functor instances for (,) and Either
 
 import Prelude hiding (replicate,concat,reverse,uncurry)
@@ -52,11 +63,22 @@ import qualified Prelude
 
 -- TODO?
 --      - implement fuzzy coerce stuff
+--          - figure out naming and module organaization for this an current 'coerce' function.
+--              - keep OverlappingInstances out of main Compose module (hidden module we import && reexport?)
+--              - export 'massage' in Data.Shapely.Compose
+--              - define convert a = massage $$ a, export in Data.Shapely
+--              - export both in Data.Shapely
+--
+--          - create thorough tests
 --      - create some examples that re-create GHC generics motivation
 --      - use some scheme to close type classes
 --         - figure out exports
 --      - implement TH stuff
+--      - add derived instaces for all built-in types
+--          - create tests for each of those types
 --
+--   v0.2:
+--      - incorporate TypeNat stuff (for specifying length and constructor number)
 --
 --
 -- OTHER FUNCTIONS:
@@ -99,62 +121,11 @@ import qualified Prelude
 
 
 
--- | A singleton inhabited 'Coproduct'. This is an intermediate type useful for
--- constructing Conproducts, and in our instances (see e.g. 'Tail')
-newtype Only a = Only a
-
-type instance NormalConstr (Only a) = Either
-instance (Product t)=> Coproduct (Only t)
-
 infixr :+:
 infixr :*:
 type (:*:) = (,)
 type (:+:) = Either
 
-
--- TODO: consider making all Left parameters and results of sums explicitly () and (a,b)
-
-
--- ARE THESE ACTUALLY USEFUL??
-type family Head xs
-type family Tail xs
-type instance Head (x,xs) = x
-type instance Head (Either x xs) = x
-
-type instance Tail (x,xs) = xs
-type instance Tail (Either x (Either y ys)) = Either y ys 
-type instance Tail (Either y ()) = Only ()
-type instance Tail (Either y (a,b)) = Only (a,b)
-
-type family Init xs
-type instance Init (xN,()) = ()
-type instance Init (x,(y,zs)) = (x, Init (y,zs)) 
-
-type instance Init (Either x (Either y zs)) = x :< (Init (Either y zs))
-type instance Init (Either x ()) = Only x
-type instance Init (Either x (a,b)) = Only x
-
-type family Last xs
-type instance Last (x,()) = x
-type instance Last (x,(y,zs)) = Last (y,zs) 
-
-type instance Last (Either x (Either y zs)) = Last (Either y zs) 
-type instance Last (Either x ()) = ()
-type instance Last (Either x (a,b)) = (a,b)
-type instance Last (Only b) = b
-
-type family t :< ts
-type instance x :< Only y = Either x y
-type instance x :< Either y zs = Either x (Either y zs)
-type instance x :< () = (x,())
-type instance x :< (y,zs) = (x,(y,zs))
-
-type family xs :> x
-type instance () :> x = (x,())
-type instance (x0,xs) :> x = (x0, xs :> x)
-
-type instance Either x0 xs :> x = Either x0 (Tail (Either x0 xs) :> x)
-type instance Only a :> b = Either a b -- TODO: insist on two instances for: b ~ () and b ~ (x,y)?
 
 
 -- TODO: use instance defaulting here for these definitions after they are settled?
