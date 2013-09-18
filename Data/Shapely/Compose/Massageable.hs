@@ -20,7 +20,6 @@ class HasAny a l b | a l -> b
 
 instance HasAny a (a,l) Yes
 instance (HasAny a l b)=> HasAny a (x,l) b
--- instance (b ~ b', HasAny a l b')=> HasAny a (x,l) b
 instance HasAny a () No
 
 -- for 'Coproduct's:
@@ -29,6 +28,7 @@ instance (HasAny a (Tail (Either x l)) b)=> HasAny a (Either x l) b
 instance HasAny p (Only p) Yes
 instance (b ~ No)=> HasAny p (Only x) b
 
+-- | The type-indexed product @l@, out of which we can pull the unique type @a@, leaving @l'@
 class TIP a l l' | a l -> l' where
     viewType :: l -> (a,l')
 
@@ -36,6 +36,7 @@ instance (HasAny a l No)=> TIP a (a,l) l where
     viewType = id
 
 instance (TIP a l l', (x,l') ~ xl')=> TIP a (x,l) xl' where
+  --viewType = swapFront . fmap viewType
     viewType (x,l) = let (a,l') = viewType l
                       in (a,(x,l'))
 
@@ -80,33 +81,26 @@ instance Massageable () () where
 instance (Massageable s' l, TIP a (x,y) s')=> Massageable (x,y) (a,l) where
     massageNormal = fmap massageNormal . viewType
 
-instance (Massageable s (Either t ts), Massageable ss (Either t ts)
-         )=> Massageable (Either s ss) (Either t ts) where
+-- this will treat source as sum of TIPs when target is a 'Product', and drop
+-- to the MassageableToCoproduct instance if a 'Coproduct'
+instance (Massageable s t, Massageable ss t)=> Massageable (Either s ss) t where
     massageNormal = either massageNormal massageNormal
 
--- base cases:
-instance (HasAny (x,y) (Tail (Either (x,y) ts)) No)=> Massageable (x,y) (Either (x,y) ts) where
-    massageNormal = Left
-
-instance (MassageableCoproduct (x,y) ts)=> Massageable (x,y) (Either t ts) where
+instance (MassageableToCoproduct (x,y) (Either t ts))=> Massageable (x,y) (Either t ts) where
     -- Drop into a 'massage' that observers product ordering, for when we
     -- hit the base case (x,y) (x',y'):
-    massageNormal = massageCoproduct
-
+    massageNormal = massageNormalToCoproduct
 
 -- HELPER. unexported.
-class MassageableCoproduct p ts where
-    massageCoproduct :: p -> ts
-instance MassageableCoproduct (x,y) (x,y) where
-    massageCoproduct = id
-instance MassageableCoproduct (x,y) (Either (x,y) ts) where
-    massageCoproduct = Left
-instance (MassageableCoproduct (x,y) ts)=> MassageableCoproduct (x,y) (Either t ts) where
-    massageCoproduct = Right . massageCoproduct
+class MassageableToCoproduct p ts where
+    massageNormalToCoproduct :: p -> ts
 
-instance Massageable (x,y) (Only (x,y)) where
-    massageNormal = Only
+instance (HasAny (x,y) (Tail (Either (x,y) ts)) No)=> MassageableToCoproduct (x,y) (Either (x,y) ts) where
+    massageNormalToCoproduct = Left
 
--- we want to treat source as sum of TIPs when target is prod:
-instance (Massageable s (x,y), Massageable ss (x,y))=> Massageable (Either s ss) (x,y) where
-    massageNormal = either massageNormal massageNormal
+instance (MassageableToCoproduct (x,y) ts)=> MassageableToCoproduct (x,y) (Either t ts) where
+    massageNormalToCoproduct = Right . massageNormalToCoproduct
+
+-- Base case: to the singleton coproduct:
+instance MassageableToCoproduct (x,y) (x,y) where
+    massageNormalToCoproduct = id
