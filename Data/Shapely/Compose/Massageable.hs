@@ -86,15 +86,43 @@ instance (Massageable s' l, TIP a (x,y) s')=> Massageable (x,y) (a,l) where
 instance (Massageable s t, Massageable ss t)=> Massageable (Either s ss) t where
     massageNormal = either massageNormal massageNormal
 
-instance (MassageableToCoproduct (x,y) (Either t ts))=> Massageable (x,y) (Either t ts) where
+instance (MassageableToCoproduct (x,y) (Either t ts) Yes)=> Massageable (x,y) (Either t ts) where
     -- Drop into a 'massage' that observers product ordering, for when we
     -- hit the base case (x,y) (x',y'):
     massageNormal = massageNormalToCoproduct
 
+-------
+
 -- HELPER. unexported.
-class MassageableToCoproduct p ts where
+class MassageableToCoproduct p ts b | p ts -> b where
     massageNormalToCoproduct :: p -> ts
 
+instance ( Massageable xxs xsx
+         , MassageableToCoproduct xxs ys No
+         )=> MassageableToCoproduct xxs (Either xsx ys) Yes where
+    massageNormalToCoproduct = Left . massageNormal
+
+{-  WE CAN COMBINE THESE TWO INTO THE ONE BELOW?: -}
+instance ( MassageableToCoproduct xxs ys b
+         )=> MassageableToCoproduct xxs (Either as ys) b where
+    massageNormalToCoproduct = Right . massageNormalToCoproduct
+
+instance ( Massageable xxs (x,xs)
+         )=> MassageableToCoproduct xxs (x,xs) Yes where
+    massageNormalToCoproduct = massageNormal 
+{-
+instance ( Massageable xxs ys
+         , b ~ Yes
+         )=> MassageableToCoproduct xxs (Either as ys) b where
+    massageNormalToCoproduct = Right . massageNormal
+    -}
+
+-- ...IS THIS EVEN NEEDED THEN?:
+instance (no ~ No)=> MassageableToCoproduct xxs (a,as) no where
+    massageNormalToCoproduct = error "shit"
+-- OR DO WE MOVE THE BOOLEAN SHIT OUT OF THE MASAGEABLETCOPRODUCT CLASS INTO A HASANY-STYLE CLASS?
+
+{-  OLD
 instance (HasAny (x,y) (Tail (Either (x,y) ts)) No)=> MassageableToCoproduct (x,y) (Either (x,y) ts) where
     massageNormalToCoproduct = Left
 
@@ -104,3 +132,4 @@ instance (MassageableToCoproduct (x,y) ts)=> MassageableToCoproduct (x,y) (Eithe
 -- Base case: to the singleton coproduct:
 instance MassageableToCoproduct (x,y) (x,y) where
     massageNormalToCoproduct = id
+    -}
