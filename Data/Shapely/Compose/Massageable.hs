@@ -3,6 +3,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE OverlappingInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ScopedTypeVariables #-}  -- for "advanced overlap" solution
 module Data.Shapely.Compose.Massageable
     where
 
@@ -86,14 +87,127 @@ instance (Massageable s' l, TIP a (x,y) s')=> Massageable (x,y) (a,l) where
 instance (Massageable s t, Massageable ss t)=> Massageable (Either s ss) t where
     massageNormal = either massageNormal massageNormal
 
-instance (MassageableToCoproduct (x,y) (Either t ts) Yes)=> Massageable (x,y) (Either t ts) where
+-- instance (MassageableToCoproduct (x,y) (Either t ts) Yes)=> Massageable (x,y) (Either t ts) where
+instance (MassageableToCoproduct (x,y) (Either t ts))=> Massageable (x,y) (Either t ts) where
     -- Drop into a 'massage' that observers product ordering, for when we
     -- hit the base case (x,y) (x',y'):
     massageNormal = massageNormalToCoproduct
 
 -------
+-- after: http://www.haskell.org/haskellwiki/GHC/AdvancedOverlap
 
--- HELPER. unexported.
+{-
+class MassageableToCoproduct s t where
+    massageNormalToCoproduct :: s -> t
+
+-- TODO rename "b" to "headMassageable"
+-- this defines the different instance options we can "select":
+class MassageableToCoproduct' s t b where
+    massageNormalToCoproduct' :: b -> s -> t
+
+instance (MassageableToCoproduct' s t b, MtC s t b)=> MassageableToCoproduct s t where
+    massageNormalToCoproduct = massageNormalToCoproduct' (undefined :: b)
+
+-- This is the instance "selector"
+class MtC s t b | s t -> b where  -- < should be renamed MassageableToCoproductEventually
+instance (Massageable xxs xsx)=> MtC xxs (Either xsx ys) Yes 
+instance (Massageable xxs (x,xs))=> MtC xxs (x,xs) Yes 
+instance MtC () () Yes 
+-- TODO options are: Yes, the head is massageable (but the tail must not be)
+--                   No, (but the tail is massageable)
+-- i.e. all instances correspond to "is Massageable coproduct"... that work?
+instance (no ~ No)=> MtC xxs aas no
+
+-- these constraints might not be necessary:
+instance ( Massageable xxs xsx
+         --, MtC xxs ys No  -- TODO: figure out how to make this work
+         )=> MassageableToCoproduct' xxs (Either xsx ys) Yes where
+    massageNormalToCoproduct' _ = Left . massageNormal
+
+instance ( Massageable xxs (x,xs)
+         )=> MassageableToCoproduct' xxs (x,xs) Yes where
+    massageNormalToCoproduct' _ = massageNormal 
+instance MassageableToCoproduct' () () Yes where
+    massageNormalToCoproduct' _ = id
+
+-- else recurse...
+instance ( MassageableToCoproduct xxs ys
+         )=> MassageableToCoproduct' xxs (Either as ys) No where
+    massageNormalToCoproduct' _ = Right . massageNormalToCoproduct
+-}
+--- ------
+
+class HeadMassageable s t b | s t -> b
+instance HeadMassageable () () Yes
+instance (And b0 b1 b, HeadMassageable s' l b0, TIPable a (x,y) s' b1)=> HeadMassageable (x,y) (a,l) b
+instance (HeadMassageable xxs as b)=> HeadMassageable xxs (Either as bs) b
+--TODO: do the boolean constraints have to be type funcs?
+--TODO start with getting this class right first, then build
+
+class TIPable a l l' b | a l -> l', a l l' -> b --TODO fundeps correct here?
+instance (HasAny a l b0, Not b0 b)=> TIPable a (a,l) l b
+--instance (TIPable a l l' b0, TypeEq (x,l') xl' b1 {-(x,l') ~ xl'-}, And b0 b1 b)=> TIPable a (x,l) xl' b
+-- actually, we can still use ~ I think:
+instance (TIPable a l l' b, (x,l') ~ xl')=> TIPable a (x,l) xl' b
+-- TODO or is there a simpler but compatble way we can prove the tuple is
+--      convertible, since we don't need a method here?
+
+class TypeEq x y b | x y -> b
+instance TypeEq x x Yes
+instance (no ~ No)=> TypeEq x y no
+
+class And a b c | a b -> c
+instance And Yes b b
+instance And No  b No
+
+class Not b b' | b -> b'
+instance Not Yes No
+instance Not No  Yes
+
+{-
+type family And b0 b1
+type instance And Yes Yes = Yes
+type instance And Yes No = No
+type instance And No Yes = No
+type instance And No No = No
+
+type family Not b
+type instance Not Yes = No
+type instance Not No = Yes
+ -}
+
+-- this defines the different instance options we can "select":
+class MassageableToCoproduct' headMassageable s t where
+    massageNormalToCoproduct' :: headMassageable -> s -> t
+
+instance (Massageable xxs xsx
+            )=> MassageableToCoproduct' Yes xxs (Either xsx ys) where -- TODO: enforce that tail is NOT massageable
+    massageNormalToCoproduct' _ = Left . massageNormal
+
+instance (Massageable xxs (x,xs)
+            )=> MassageableToCoproduct' Yes xxs (x,xs) where
+    massageNormalToCoproduct' _ = massageNormal
+
+instance MassageableToCoproduct' Yes () () where -- TODO or combinable with above??
+    massageNormalToCoproduct' _ = id
+
+instance (MassageableToCoproduct xxs ys
+            )=> MassageableToCoproduct' No xxs (Either xsx ys) where
+    massageNormalToCoproduct' _ = Right . massageNormalToCoproduct -- N.B. not massageNormalToCoproduct'
+
+
+-- our single instance class:
+class MassageableToCoproduct s t where
+    massageNormalToCoproduct :: s -> t
+
+instance (MassageableToCoproduct' b s t, HeadMassageable s t b)=> MassageableToCoproduct s t where
+    massageNormalToCoproduct = massageNormalToCoproduct' (undefined :: b)
+
+
+ -- ------------------------
+-- This is quite ugly:
+{-
+-- HELPER. method must be unexported.
 class MassageableToCoproduct p ts b | p ts -> b where
     massageNormalToCoproduct :: p -> ts
 
@@ -101,8 +215,15 @@ instance ( Massageable xxs xsx
          , MassageableToCoproduct xxs ys No
          )=> MassageableToCoproduct xxs (Either xsx ys) Yes where
     massageNormalToCoproduct = Left . massageNormal
+{-
+instance ( Massageable (x,xs) xsx
+         , MassageableToCoproduct (x,xs) ys No
+         )=> MassageableToCoproduct (x,xs) (Either xsx ys) Yes where
+    massageNormalToCoproduct = Left . massageNormal
 
-{-  WE CAN COMBINE THESE TWO INTO THE ONE BELOW?: -}
+instance MassageableToCoproduct () (Either () ys) Yes where
+    massageNormalToCoproduct = Left . id
+-}
 instance ( MassageableToCoproduct xxs ys b
          )=> MassageableToCoproduct xxs (Either as ys) b where
     massageNormalToCoproduct = Right . massageNormalToCoproduct
@@ -110,26 +231,11 @@ instance ( MassageableToCoproduct xxs ys b
 instance ( Massageable xxs (x,xs)
          )=> MassageableToCoproduct xxs (x,xs) Yes where
     massageNormalToCoproduct = massageNormal 
-{-
-instance ( Massageable xxs ys
-         , b ~ Yes
-         )=> MassageableToCoproduct xxs (Either as ys) b where
-    massageNormalToCoproduct = Right . massageNormal
-    -}
 
--- ...IS THIS EVEN NEEDED THEN?:
-instance (no ~ No)=> MassageableToCoproduct xxs (a,as) no where
-    massageNormalToCoproduct = error "shit"
--- OR DO WE MOVE THE BOOLEAN SHIT OUT OF THE MASAGEABLETCOPRODUCT CLASS INTO A HASANY-STYLE CLASS?
-
-{-  OLD
-instance (HasAny (x,y) (Tail (Either (x,y) ts)) No)=> MassageableToCoproduct (x,y) (Either (x,y) ts) where
-    massageNormalToCoproduct = Left
-
-instance (MassageableToCoproduct (x,y) ts)=> MassageableToCoproduct (x,y) (Either t ts) where
-    massageNormalToCoproduct = Right . massageNormalToCoproduct
-
--- Base case: to the singleton coproduct:
-instance MassageableToCoproduct (x,y) (x,y) where
+instance MassageableToCoproduct () () Yes where
     massageNormalToCoproduct = id
+
+instance (no ~ No)=> MassageableToCoproduct xxs aas no where
+    massageNormalToCoproduct = error "shit"
     -}
+
