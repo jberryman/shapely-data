@@ -14,8 +14,8 @@ import Data.Shapely.Compose.Classes
 
 -- We borrow this type-equality comparison trick from Oleg: 
 --   http://okmij.org/ftp/Haskell/ConEQ.hs
-data Yes = Yes deriving (Show,Eq)
-data No  = No deriving (Show,Eq)
+data Yes
+data No
 
 class HasAny a l b | a l -> b
 
@@ -29,7 +29,7 @@ instance (HasAny a (Tail (Either x l)) b)=> HasAny a (Either x l) b
 instance HasAny p (Only p) Yes
 instance (b ~ No)=> HasAny p (Only x) b
 
--- | The type-indexed product @l@, out of which we can pull the unique type @a@, leaving @l'@
+-- | The non-empty, type-indexed product @l@, out of which we can pull the unique type @a@, leaving @l'@
 class TIP a l l' | a l -> l' where
     viewType :: l -> (a,l')
 
@@ -87,8 +87,8 @@ instance (Massageable s' l, TIP a (x,y) s')=> Massageable (x,y) (a,l) where
 instance (Massageable s t, Massageable ss t)=> Massageable (Either s ss) t where
     massageNormal = either massageNormal massageNormal
 
--- instance (MassageableToCoproduct (x,y) (Either t ts) Yes)=> Massageable (x,y) (Either t ts) where
-instance (MassageableToCoproduct (x,y) (Either t ts))=> Massageable (x,y) (Either t ts) where
+-- instance (MassageableToCoproduct (x,y) (Either t ts))=> Massageable (x,y) (Either t ts) where
+instance (MassageableToCoproduct x (Either t ts))=> Massageable x (Either t ts) where --TODO if this doesn't work, we need separate () and (,) instances
     -- Drop into a 'massage' that observers product ordering, for when we
     -- hit the base case (x,y) (x',y'):
     massageNormal = massageNormalToCoproduct
@@ -139,22 +139,22 @@ instance ( MassageableToCoproduct xxs ys
 
 class HeadMassageable s t b | s t -> b
 instance HeadMassageable () () Yes
+instance (No ~ no)=> HeadMassageable (x,y) () no
+instance (No ~ no)=> HeadMassageable () (x,y) no
+-- TODO when we get to (), then s' is unknown (impossible), should be Void...?
 instance (And b0 b1 b, HeadMassageable s' l b0, TIPable a (x,y) s' b1)=> HeadMassageable (x,y) (a,l) b
 instance (HeadMassageable xxs as b)=> HeadMassageable xxs (Either as bs) b
 --TODO: do the boolean constraints have to be type funcs?
 --TODO start with getting this class right first, then build
 
 class TIPable a l l' b | a l -> l', a l l' -> b --TODO fundeps correct here?
+-- Yes, but only if tail has no 'a':
 instance (HasAny a l b0, Not b0 b)=> TIPable a (a,l) l b
---instance (TIPable a l l' b0, TypeEq (x,l') xl' b1 {-(x,l') ~ xl'-}, And b0 b1 b)=> TIPable a (x,l) xl' b
--- actually, we can still use ~ I think:
+-- recurse, looking in tail for 'a':
 instance (TIPable a l l' b, (x,l') ~ xl')=> TIPable a (x,l) xl' b
 -- TODO or is there a simpler but compatble way we can prove the tuple is
 --      convertible, since we don't need a method here?
-
-class TypeEq x y b | x y -> b
-instance TypeEq x x Yes
-instance (no ~ No)=> TypeEq x y no
+instance (No ~ no)=> TIPable a () x no
 
 class And a b c | a b -> c
 instance And Yes b b
@@ -164,16 +164,19 @@ class Not b b' | b -> b'
 instance Not Yes No
 instance Not No  Yes
 
-{-
-type family And b0 b1
-type instance And Yes Yes = Yes
-type instance And Yes No = No
-type instance And No Yes = No
-type instance And No No = No
+{- BROKEN QUERIES:
+*Data.Shapely.Compose.Massageable> let b = ('a',("hi",()))
+*Data.Shapely.Compose.Massageable> massageNormal b :: Either (String,(Char,())) (String,(Char,())) -- should not typecheck
 
-type family Not b
-type instance Not Yes = No
-type instance Not No = Yes
+*Data.Shapely.Compose.Massageable> massageNormal b :: Either (Int,(Char,())) (String,(Char,()))
+
+First try to pull an Int out of (Char,(String,()))...
+
+    *Data.Shapely.Compose.Massageable> massageNormal () :: Either () (String,(Char,()))
+    *Data.Shapely.Compose.Massageable> massageNormal () :: Either (String,(Char,())) ()
+    *Data.Shapely.Compose.Massageable> massageNormal b :: Either (Char,(Int,())) (String,(Char,()))
+    *Data.Shapely.Compose.Massageable> massageNormal b :: Either (String,(Int,())) (String,(Char,()))
+    *Data.Shapely.Compose.Massageable> massageNormal b :: Either (String,()) (String,(Char,()))
  -}
 
 -- this defines the different instance options we can "select":
