@@ -141,20 +141,25 @@ class HeadMassageable s t b | s t -> b
 instance HeadMassageable () () Yes
 instance (No ~ no)=> HeadMassageable (x,y) () no
 instance (No ~ no)=> HeadMassageable () (x,y) no
--- TODO when we get to (), then s' is unknown (impossible), should be Void...?
 instance (And b0 b1 b, HeadMassageable s' l b0, TIPable a (x,y) s' b1)=> HeadMassageable (x,y) (a,l) b
 instance (HeadMassageable xxs as b)=> HeadMassageable xxs (Either as bs) b
---TODO: do the boolean constraints have to be type funcs?
---TODO start with getting this class right first, then build
 
-class TIPable a l l' b | a l -> l', a l l' -> b --TODO fundeps correct here?
+-- TODO This isn't exactly what we want; see below*
+class TIPable a l l' b | a l -> l', a l l' -> b
 -- Yes, but only if tail has no 'a':
 instance (HasAny a l b0, Not b0 b)=> TIPable a (a,l) l b
 -- recurse, looking in tail for 'a':
 instance (TIPable a l l' b, (x,l') ~ xl')=> TIPable a (x,l) xl' b
--- TODO or is there a simpler but compatble way we can prove the tuple is
---      convertible, since we don't need a method here?
-instance (No ~ no)=> TIPable a () x no
+instance (No ~ no, No ~ none)=> TIPable a () none no
+-- *our TIPable class doesn't really work as a predicate, since the decomposition
+-- (whose existence we want to express in 'b') is in the instance head, so
+-- in our fall-through instance above we replace where the list remainder
+-- should be with 'No' and catch it in the instances below. Sorry...
+instance (No ~ no)=> HeadMassageable No () no
+instance (No ~ no)=> HeadMassageable No (x,y) no
+instance (No ~ no)=> TIPable a No x no
+instance (No ~ no)=> HasAny a No no
+
 
 class And a b c | a b -> c
 instance And Yes b b
@@ -164,14 +169,14 @@ class Not b b' | b -> b'
 instance Not Yes No
 instance Not No  Yes
 
-{- BROKEN QUERIES:
+{- 
 *Data.Shapely.Compose.Massageable> let b = ('a',("hi",()))
+
+BROKEN:
 *Data.Shapely.Compose.Massageable> massageNormal b :: Either (String,(Char,())) (String,(Char,())) -- should not typecheck
 
-*Data.Shapely.Compose.Massageable> massageNormal b :: Either (Int,(Char,())) (String,(Char,()))
-
-First try to pull an Int out of (Char,(String,()))...
-
+    FIXED (make these tests):
+    *Data.Shapely.Compose.Massageable> massageNormal b :: Either (Int,(Char,())) (String,(Char,()))
     *Data.Shapely.Compose.Massageable> massageNormal () :: Either () (String,(Char,()))
     *Data.Shapely.Compose.Massageable> massageNormal () :: Either (String,(Char,())) ()
     *Data.Shapely.Compose.Massageable> massageNormal b :: Either (Char,(Int,())) (String,(Char,()))
