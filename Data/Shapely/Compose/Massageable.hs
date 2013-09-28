@@ -165,6 +165,10 @@ class And a b c | a b -> c
 instance And Yes b b
 instance And No  b No
 
+class Or a b c | a b -> c
+instance Or No  b b
+instance Or Yes b Yes
+
 class Not b b' | b -> b'
 instance Not Yes No
 instance Not No  Yes
@@ -172,10 +176,12 @@ instance Not No  Yes
 {- 
 *Data.Shapely.Compose.Massageable> let b = ('a',("hi",()))
 
-BROKEN:
-*Data.Shapely.Compose.Massageable> massageNormal b :: Either (String,(Char,())) (String,(Char,())) -- should not typecheck
+FIXED (make these tests):
+    -- must not typecheck
+    *Data.Shapely.Compose.Massageable> massageNormal b :: Either (String,(Char,())) (Char,(String,())) 
+    *Data.Shapely.Compose.Massageable> massageNormal () :: Either () ()
 
-    FIXED (make these tests):
+    -- must typecheck:
     *Data.Shapely.Compose.Massageable> massageNormal b :: Either (Int,(Char,())) (String,(Char,()))
     *Data.Shapely.Compose.Massageable> massageNormal () :: Either () (String,(Char,()))
     *Data.Shapely.Compose.Massageable> massageNormal () :: Either (String,(Char,())) ()
@@ -183,17 +189,28 @@ BROKEN:
     *Data.Shapely.Compose.Massageable> massageNormal b :: Either (String,(Int,())) (String,(Char,()))
     *Data.Shapely.Compose.Massageable> massageNormal b :: Either (String,()) (String,(Char,()))
  -}
+-- This lets us enforce unambiguous mapping to a Coproduct below; again,
+-- probably more ugly than necessary:
+class AnyHeadMassageable xxs ys b | xxs ys -> b
+instance (HeadMassageable xxs (x,xs) b)=> AnyHeadMassageable xxs (x,xs) b
+instance (HeadMassageable xxs () b)=> AnyHeadMassageable xxs () b
+instance (HeadMassageable xxs xs b0
+         , AnyHeadMassageable xxs ys b1
+         , Or b0 b1 b
+         )=> AnyHeadMassageable xxs (Either xs ys) b
 
--- this defines the different instance options we can "select":
-class MassageableToCoproduct' headMassageable s t where
+-- this defines the different instance options we can "select" depending on
+-- whether the head is massageable product or not:
+class MassageableToCoproduct' headMassageable s t where  -- TODO: add (Coproduct s)=>
     massageNormalToCoproduct' :: headMassageable -> s -> t
 
 instance (Massageable xxs xsx
-            )=> MassageableToCoproduct' Yes xxs (Either xsx ys) where -- TODO: enforce that tail is NOT massageable
+         , AnyHeadMassageable xxs ys No -- unambiguous mapping, else fails to typecheck
+         )=> MassageableToCoproduct' Yes xxs (Either xsx ys) where -- TODO: enforce that tail is NOT massageable
     massageNormalToCoproduct' _ = Left . massageNormal
 
 instance (Massageable xxs (x,xs)
-            )=> MassageableToCoproduct' Yes xxs (x,xs) where
+         )=> MassageableToCoproduct' Yes xxs (x,xs) where
     massageNormalToCoproduct' _ = massageNormal
 
 instance MassageableToCoproduct' Yes () () where -- TODO or combinable with above??
