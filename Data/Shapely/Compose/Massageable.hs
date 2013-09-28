@@ -42,6 +42,9 @@ instance (TIP a l l', (x,l') ~ xl')=> TIP a (x,l) xl' where
                       in (a,(x,l'))
 
 
+-- TODO variations (perhaps with type-level flags) for:
+--          - non-shuffling of product terms when mapping to a coproduct
+--          - ignore recursive terms
 
 -- | A class for typed, hopefully-principled, \"fuzzy coercions\" between types
 -- in 'Normal' form. This works as follows (or see examples below):
