@@ -89,3 +89,21 @@ test_replicate2 = (3 ==) $ Sh.uncurry (\x y z-> x+y+z) (Sh.replicate 1 :: (Int,(
 test_extract = let s' :: Either (Int,()) (Either (Int,()) (Int,()))
                    s' = Right (Right (1,()))
                 in extract s'  ==  (1,())
+
+
+-- Massageable tests:
+{- 
+*Data.Shapely.Compose.Massageable> let b = ('a',("hi",()))
+
+    -- must not typecheck
+    *Data.Shapely.Compose.Massageable> massageNormal b :: Either (String,(Char,())) (Char,(String,())) 
+    *Data.Shapely.Compose.Massageable> massageNormal () :: Either () ()
+
+    -- must typecheck:
+    *Data.Shapely.Compose.Massageable> massageNormal b :: Either (Int,(Char,())) (String,(Char,()))
+    *Data.Shapely.Compose.Massageable> massageNormal () :: Either () (String,(Char,()))
+    *Data.Shapely.Compose.Massageable> massageNormal () :: Either (String,(Char,())) ()
+    *Data.Shapely.Compose.Massageable> massageNormal b :: Either (Char,(Int,())) (String,(Char,()))
+    *Data.Shapely.Compose.Massageable> massageNormal b :: Either (Char,(String,(Int,()))) (String,(Char,()))
+    *Data.Shapely.Compose.Massageable> massageNormal b :: Either (String,()) (String,(Char,()))
+ -}
