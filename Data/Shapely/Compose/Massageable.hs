@@ -90,10 +90,12 @@ instance (Massageable s' l, TIP a (x,y) s')=> Massageable (x,y) (a,l) where
 instance (Massageable s t, Massageable ss t)=> Massageable (Either s ss) t where
     massageNormal = either massageNormal massageNormal
 
--- instance (MassageableToCoproduct (x,y) (Either t ts))=> Massageable (x,y) (Either t ts) where
-instance (MassageableToCoproduct x (Either t ts))=> Massageable x (Either t ts) where --TODO if this doesn't work, we need separate () and (,) instances
+instance (MassageableToCoproduct (x,y) (Either t ts))=> Massageable (x,y) (Either t ts) where
     -- Drop into a 'massage' that observers product ordering, for when we
     -- hit the base case (x,y) (x',y'):
+    massageNormal = massageNormalToCoproduct
+
+instance (MassageableToCoproduct () (Either t ts))=> Massageable () (Either t ts) where
     massageNormal = massageNormalToCoproduct
 
 -------

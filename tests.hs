@@ -106,4 +106,9 @@ test_extract = let s' :: Either (Int,()) (Either (Int,()) (Int,()))
     *Data.Shapely.Compose.Massageable> massageNormal b :: Either (Char,(Int,())) (String,(Char,()))
     *Data.Shapely.Compose.Massageable> massageNormal b :: Either (Char,(String,(Int,()))) (String,(Char,()))
     *Data.Shapely.Compose.Massageable> massageNormal b :: Either (String,()) (String,(Char,()))
+
+*Data.Shapely.Compose.Massageable Control.Arrow> let c = (Left ('a',("hi",()))) :: Either (Char,(String,())) ()
+    *Data.Shapely.Compose.Massageable Control.Arrow> massageNormal c :: Either (Int,()) (Either (String,(Char,())) ())
+    
+
  -}
