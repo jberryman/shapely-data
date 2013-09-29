@@ -2,34 +2,10 @@
 module Data.Shapely.Compose.Classes
     where
 
+import Data.Shapely.Classes
+
 -- Internal module, mostly to avoid circular imports.
 
-
-
--- | A Product is a list of arbitrary terms constructed with @(,)@, and
--- terminated by @()@ in the @snd@. e.g.
---
--- > prod = (1,(2,(3,())))
-class (NormalConstr t ~ (,))=> Product t
-instance Product ()
-instance (Product ts)=> Product (a,ts)
-
--- | A coproduct is a non-empty list of 'Product's constructed with @Either@
--- and terminated by a 'Product' type on the @Right@. e.g.
---
--- > coprod = (Right $ Left (1,(2,(3,())))) :: Either (Bool,()) (Either (Int,(Int,(Int,()))) (Char,()))
---
--- To simplify type functions and class instances we also define the singleton
--- coproduct 'Only'.
-class (NormalConstr e ~ Either)=> Coproduct e 
-instance (Product t)=> Coproduct (Either t ())
-instance (Product t, Product (a,b))=> Coproduct (Either t (a,b))
-instance (Product t, Coproduct (Either b c))=> Coproduct (Either t (Either b c))
-
-type family NormalConstr t :: * -> * -> *
-type instance NormalConstr (a,b) = (,)
-type instance NormalConstr () = (,)
-type instance NormalConstr (Either a b) = Either
 
 
 

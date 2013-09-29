@@ -53,6 +53,7 @@ compatibility issues when this module is improved.
 import Data.Shapely
 import Data.Shapely.Category
 import Data.Shapely.Compose.Classes
+import Data.Shapely.Classes
 import Data.Shapely.Compose.Massage
 import Control.Applicative() -- Functor instances for (,) and Either
 

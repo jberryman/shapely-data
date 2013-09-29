@@ -7,6 +7,7 @@
 module Data.Shapely.Compose.Massageable
     where
 
+import Data.Shapely.Classes
 import Data.Shapely.Compose.Classes
 
 -- An internal module mostly to keep use of OverlappingInstances isolated
