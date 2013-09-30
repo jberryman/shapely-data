@@ -47,13 +47,14 @@ compatibility issues when this module is improved.
     , Fanin(..)
 
     -- * Product and Coproduct Conversions
-    , Massage(..)
+    , MassageableNormal(..)
     ) where
 
 import Data.Shapely
 import Data.Shapely.Category
 import Data.Shapely.Compose.Classes
-import Data.Shapely.Compose.Massage
+import Data.Shapely.Classes
+import Data.Shapely.Compose.Massageable
 import Control.Applicative() -- Functor instances for (,) and Either
 
 import Prelude hiding (replicate,concat,reverse,uncurry)
