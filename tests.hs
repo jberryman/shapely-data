@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeFamilies #-}
 module Main
     where
 
@@ -8,6 +9,7 @@ module Main
 -- Compose module are very welcome, as long as they don't break this test
 -- module.
 
+import Data.Shapely
 import Data.Shapely.Compose as Sh
 
 s :: (Int,()) :+: (Char,()) :+: (Bool,())
@@ -108,7 +110,23 @@ test_extract = let s' :: Either (Int,()) (Either (Int,()) (Int,()))
     *Data.Shapely.Compose.Massageable> massageNormal b :: Either (String,()) (String,(Char,()))
 
 *Data.Shapely.Compose.Massageable Control.Arrow> let c = (Left ('a',("hi",()))) :: Either (Char,(String,())) ()
+
     *Data.Shapely.Compose.Massageable Control.Arrow> massageNormal c :: Either (Int,()) (Either (String,(Char,())) ())
     
+Testing recursion:
+
+
+    -- [a] with both order of products and coproducts reversed:
+    data Tsil a = Snoc (Tsil a) a
+              | Lin
+              deriving Show
+    instance Shapely (Tsil a) where
+        type Normal (Tsil a) = Either (AlsoNormal (Tsil a), (a, ())) ()
+        toNorm (Snoc l n) = Left (Also . toNorm $ l , (n ,()))
+        toNorm Lin = Right ()
+        fromNorm (Right ()) = Lin
+        fromNorm (Left (an,(n,()))) = Snoc (fromNorm . normal $ an) n
+
+    massageRec "123"  :: Tsil Char
 
  -}

@@ -53,15 +53,15 @@ import Data.Shapely.Compose.Massageable
 coerce :: (Isomorphic a b)=> a -> b
 coerce = fromNorm . toNorm
 
--- | A \"fuzzy\" coerce function, supporting collapsing and re-ordering of
+-- | A typed \"fuzzy\" coerce function, supporting collapsing and re-ordering of
 -- 'Coproduct' types, and treating 'Product's like sets (a la \"type-indexed
--- products\") in a sane manner.
+-- products\") with re-ordering, and mapping equivalent recursive subterms.
 --
 -- See 'Massageable' for more details on how this conversion works.
---
--- > massage a = massageNormal $$ a
-massage :: (Shapely a, Shapely b, Massageable (Normal a) (Normal b)) => a -> b
-massage a = massageNormal $$ a
+massage :: (Shapely a, Shapely b, Massageable a b (Normal a) (Normal b)) => a -> b
+massage a = let b = massageNormalRec (undefined `asTypeOf` a) (undefined `asTypeOf` b) $$ a
+             in b
+
 
 -- | Apply a function on the 'Normal' representation of a type to an ordinary
 -- value.
