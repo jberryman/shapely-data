@@ -51,7 +51,7 @@ class Shapely a where
     -- See the documentation for 'mkShapely', and the instances defined here
     -- for details.
     type Normal a
-    toNorm :: a -> Normal a
+    toNorm :: a -> Normal a    -- TODO: rename toNormal, fromNormal. Or... to/from  ?
     fromNorm :: Normal a -> a
 
 -- | Note, the normal form for a tuple is not itself

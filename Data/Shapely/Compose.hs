@@ -47,7 +47,7 @@ compatibility issues when this module is improved.
     , Fanin(..)
 
     -- * Product and Coproduct Conversions
-    , Massageable(), massageNormal, FLAT()
+    , MassageableNormal(..)
     ) where
 
 import Data.Shapely
