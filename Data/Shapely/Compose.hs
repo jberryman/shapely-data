@@ -62,16 +62,15 @@ import qualified Prelude
 
 
 -- TODO?
---          - create thorough tests for 'massage'
---          - finish documenting massage
---      - implement TH stuff
+--      - review TODOs and do another round of renaming
+--      - implement TH stuff, derive instances for all built-in types
+--      - implement thorough tests for 'massage', and TH-derived stuff.
 --      - create some examples that re-create GHC generics motivation
 --      - use some scheme to close type classes
 --         - figure out exports
---      - add derived instaces for all built-in types
---          - create tests for each of those types
 --
 --   v0.2:
+--      - freeze 'massage' behavior
 --      - incorporate TypeNat stuff (for specifying length and constructor number)
 --
 --

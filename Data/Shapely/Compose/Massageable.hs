@@ -123,7 +123,7 @@ instance (Shapely a, Shapely b
          , MassageableNormalRec a b (Normal a) (Normal b)
          )=> Massageable a b where
     massage a = let b = massageNormalRec (undefined `asTypeOf` a) (undefined `asTypeOf` b) $$ a
-                    ($$) f = fromNorm . f . toNorm -- TODO or move from Data.Shapely
+                    ($$) f = from . f . to -- TODO or move from Data.Shapely
                  in b
     
 

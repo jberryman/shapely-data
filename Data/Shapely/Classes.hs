@@ -51,30 +51,30 @@ class Shapely a where
     -- See the documentation for 'mkShapely', and the instances defined here
     -- for details.
     type Normal a
-    toNorm :: a -> Normal a    -- TODO: rename toNormal, fromNormal. Or... to/from  ?
-    fromNorm :: Normal a -> a
+    to :: a -> Normal a    -- TODO: rename toal, fromal. Or... to/from  ?
+    from :: Normal a -> a
 
 -- | Note, the normal form for a tuple is not itself
 instance Shapely (x,y) where
     type Normal (x,y) = (x,(y,()))
-    toNorm (x,y) = (x,(y,()))
-    fromNorm (x,(y,())) = (x,y)
+    to (x,y) = (x,(y,()))
+    from (x,(y,())) = (x,y)
 
 -- Syntactically we can think of the type constructor (in this case (), but
 -- usually, e.g. "Foo") becoming (), and getting pushed to the bottom of the
 -- stack of its terms (in this case there aren't any).
 instance Shapely () where  
     type Normal () = ()
-    toNorm = id
-    fromNorm = id
+    to = id
+    from = id
 
 -- Here, again syntactically, both constructors Left and Right become `()`, and
 -- we replace `|` with `Either` creating a sum of products.
 instance Shapely (Either x y) where
     type Normal (Either x y) = Either (x,()) (y,())
-    toNorm = let f = flip (,) () in either (Left . f) (Right . f)
-    fromNorm = either (Left . fst) (Right . fst)
-  --fromNorm = Sh.fanin (Left,(Right,())).
+    to = let f = flip (,) () in either (Left . f) (Right . f)
+    from = either (Left . fst) (Right . fst)
+  --from = Sh.fanin (Left,(Right,())).
 
 ---- TODO: more instances by hand. Check their equivalents in tests of TH code by using a newtype wrapper. -----
 

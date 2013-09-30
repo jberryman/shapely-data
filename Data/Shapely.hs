@@ -47,18 +47,18 @@ import Data.Shapely.Compose.Massageable
 --      -make method of Isomorphic class?
 -- | Convert a type @a@ to an isomorphic type @b@.
 --
--- > coerce = fromNorm . toNorm
+-- > coerce = from . to
 --
 -- See 'massage' for a more powerful and flexible conversion function.
 coerce :: (Isomorphic a b)=> a -> b
-coerce = fromNorm . toNorm
+coerce = from . to
 
 
 -- | Apply a function on the 'Normal' representation of a type to an ordinary
 -- value.
 --
--- > ($$) f = fromNorm . f . toNorm
+-- > ($$) f = from . f . to
 infixr 1 $$  --is this right?
 ($$) :: (Shapely a, Shapely b)=> (Normal a -> Normal b) -> a -> b
-($$) f = fromNorm . f . toNorm
+($$) f = from . f . to
 

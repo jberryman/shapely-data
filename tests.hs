@@ -122,10 +122,10 @@ Testing recursion:
               deriving Show
     instance Shapely (Tsil a) where
         type Normal (Tsil a) = Either (AlsoNormal (Tsil a), (a, ())) ()
-        toNorm (Snoc l n) = Left (Also . toNorm $ l , (n ,()))
-        toNorm Lin = Right ()
-        fromNorm (Right ()) = Lin
-        fromNorm (Left (an,(n,()))) = Snoc (fromNorm . normal $ an) n
+        to (Snoc l n) = Left (Also . to $ l , (n ,()))
+        to Lin = Right ()
+        from (Right ()) = Lin
+        from (Left (an,(n,()))) = Snoc (from . normal $ an) n
 
     massageRec "123"  :: Tsil Char
 
