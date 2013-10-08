@@ -102,7 +102,7 @@ class MassageableNormal x y where
     massageNormal :: x -> y
 
 instance (MassageableNormalRec FLAT FLAT x y)=> MassageableNormal x y where
-    massageNormal = massageNormalRec FLAT FLAT
+    massageNormal = massageNormalRec (FLAT,FLAT)
 
 -- | /DISCLAIMER: this function is experimental (although it should be correct) and the behavior may change in the next version, based on user feedback. Please see list of limitations below and send feedback if you have any./
 --
@@ -146,24 +146,21 @@ class Massageable a b where
 instance (Shapely a, Shapely b
          , MassageableNormalRec a b (Normal a) (Normal b)
          )=> Massageable a b where
-    massage a = let b = massageNormalRec (undefined `asTypeOf` a) (undefined `asTypeOf` b) $$ a
+    massage a = let b = massageNormalRec (undefined `asTypeOf` a, undefined `asTypeOf` b) $$ a
                     ($$) f = from . f . to -- TODO or move from Data.Shapely
                  in b
     
 
 ---------- implementation, left unexported: ----------
 
--- TODO MAYBE: turn 'pa' and 'pb' into a single proxy variable and we can pass
---             either `FLAT` or `PROXY s t`?. Bundle all dummy args together so
---             we can pass them recursively without errors.
 
 class MassageableNormalRec pa pb na nb where
     -- keep method hidden:
-    massageNormalRec :: pa -> pb  -- proxies for 'a' and 'b' to support recursion
+    massageNormalRec :: (pa, pb)  -- proxies for 'a' and 'b' to support recursion
                      -> na -> nb  -- (Normal a) is massaged to (Normal b)
 
 instance (MassageableNormalRec a b s t, MassageableNormalRec a b ss t)=> MassageableNormalRec a b (Either s ss) t where
-    massageNormalRec pa pb = either (massageNormalRec pa pb) (massageNormalRec pa pb)
+    massageNormalRec ab = either (massageNormalRec ab) (massageNormalRec ab)
 
 instance ( IsAllUnique (x,xs) isTIPStyle
          , ProductToProductPred isTIPStyle a b (x,xs) xss isHeadMassageable
@@ -181,27 +178,27 @@ instance ( Product xs, Product ys
          -- Only "real" instances of ProductToProductPred will typecheck:
          , ProductToProductPred isTIPStyle a b xs ys Yes
     )=> MassageableNormalRec a b xs ys where
-    massageNormalRec = massageProdProd (undefined::isTIPStyle)
+    massageNormalRec ab = massageProdProd (undefined::isTIPStyle, ab)
 
-alsoMassage :: MassageableNormalRec pa pb (Normal pa) (Normal pb)=> pa -> pb -> AlsoNormal pa -> AlsoNormal pb
-alsoMassage pa pb = Also . massageNormalRec pa pb . normal
+alsoMassage :: MassageableNormalRec pa pb (Normal pa) (Normal pb)=> (pa,pb) -> AlsoNormal pa -> AlsoNormal pb
+alsoMassage ab = Also . massageNormalRec ab . normal
 
 
 ------------------------------------------------------------------------------
 -- MASSAGING PRODUCTS TO COPRODUCTS
 
 class ProductToCoproduct isHeadMassageable pa pb s t where
-    massageProdCoprod :: isHeadMassageable -> pa -> pb -> s -> t
+    massageProdCoprod :: isHeadMassageable -> (pa,pb) -> s -> t
 
 instance ( IsAllUnique xss isTIPStyle
          , ProductToProductPred isTIPStyle pa pb xss xs Yes
          -- insist unambiguous, else fail typechecking:
          , AnyMassageable pa pb xss ys No
          )=> ProductToCoproduct Yes pa pb xss (Either xs ys) where
-    massageProdCoprod _ pa pb = Left . massageProdProd (undefined :: isTIPStyle) pa pb
+    massageProdCoprod _ ab = Left . massageProdProd (undefined :: isTIPStyle,ab)
 
 instance (MassageableNormalRec pa pb yss ys)=> ProductToCoproduct No pa pb yss (Either xs ys) where
-    massageProdCoprod _ pa pb = Right . massageNormalRec pa pb
+    massageProdCoprod _ ab = Right . massageNormalRec ab
 
 -- helper predicate class:
 class AnyMassageable pa pb xss yss b | pa pb xss yss -> b
@@ -221,13 +218,13 @@ instance ( IsAllUnique xss isTIPStyle
 -- combination Predicate/functional class. "No" instances are defined where we
 -- would normally have not defined an instance.
 class ProductToProductPred isTIPStyle pa pb s t b | isTIPStyle pa pb s t -> b where
-    massageProdProd :: isTIPStyle -> pa -> pb -> s -> t
+    massageProdProd :: (isTIPStyle, (pa,pb)) -> s -> t
     massageProdProd = error "massageProdProd: Method called in No predicate instance"
 
 ------------ INSTANCES: ------------
 
 instance ProductToProductPred either pa pb () () Yes where
-    massageProdProd _ _ _ = id
+    massageProdProd _ = id
 
 
 ---- TIP-style, where all source product terms are unique ----
@@ -236,7 +233,7 @@ instance ( ProductToProductPred Yes pa pb xxs' ys tailsTIPMassageable
          , TypeIndexPred y (x,xs) xxs' xxsHasY
          , And tailsTIPMassageable xxsHasY b
     )=> ProductToProductPred Yes pa pb (x,xs) (y,ys) b where
-    massageProdProd _ pa pb = fmap (massageProdProd Yes pa pb) . viewType
+    massageProdProd ps = fmap (massageProdProd ps) . viewType
 
 -- when the head of target is a recursive 'b' term, we try to pull an
 -- equivalent recursive 'a' term out of the source tuple, insisting that they also
@@ -246,21 +243,21 @@ instance ( ProductToProductPred Yes pa pb xxs' ys tailsTIPMassageable
          , And tailsTIPMassageable xxsHasRecursiveA b
          , MassageableNormalRec pa pb (Normal pa) (Normal pb)
     )=> ProductToProductPred Yes pa pb (x,xs) (AlsoNormal pb, ys) b where
-    massageProdProd _ pa pb = (alsoMassage pa pb *** massageProdProd Yes pa pb) . viewType -- TODO: or make a massageable instance for AlsoNormal?
+    massageProdProd ps = (alsoMassage (snd ps) *** massageProdProd ps) . viewType -- TODO: or make a massageable instance for AlsoNormal?
 
 
 ---- order-preserving style: ----
 
 instance (ProductToProductPred No pa pb ys ys' b
     )=> ProductToProductPred No pa pb (x,ys) (x,ys') b where
-    massageProdProd _ pa pb = fmap (massageProdProd No pa pb)
+    massageProdProd = fmap . massageProdProd
 
 -- when massaging ordered tuples we can simply match equivalent AlsoNormal
 -- terms on each fst position:
 instance ( ProductToProductPred No pa pb ys ys' b
          , MassageableNormalRec pa pb (Normal pa) (Normal pb)
     )=> ProductToProductPred No pa pb (AlsoNormal pa, ys) (AlsoNormal pb, ys') b where
-    massageProdProd _ pa pb = alsoMassage pa pb *** massageProdProd No pa pb
+    massageProdProd ps = alsoMassage (snd ps) *** massageProdProd ps
 
 
 ------------ NON-INSTANCES: ------------
