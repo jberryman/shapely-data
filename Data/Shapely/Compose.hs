@@ -65,6 +65,7 @@ import qualified Prelude
 --      - review TODOs and do another round of renaming
 --      - implement TH stuff, derive instances for all built-in types
 --      - implement thorough tests for 'massage', and TH-derived stuff.
+--          - especially recursion, which we haven't tested well
 --      - create some examples that re-create GHC generics motivation
 --      - use some scheme to close type classes
 --         - figure out exports
@@ -111,6 +112,23 @@ import qualified Prelude
 --     -vinyl
 --     -Arrow
 -- -------
+
+
+{-
+-- TODO rename to TypeIndex, replace (,) with NormalConstr,
+--      and make instances for Coproduct (l -> Either a l').
+-- | The non-empty, type-indexed product @l@, out of which we can pull the unique type @a@, leaving @l'@
+class TIP a l l' | a l -> l' where
+    viewType :: l -> (a,l')
+
+instance (HasAny a l No)=> TIP a (a,l) l where
+    viewType = id
+
+instance (TIP a l l', (x,l') ~ xl')=> TIP a (x,l) xl' where
+  --viewType = swapFront . fmap viewType  --TODO
+    viewType (x,l) = let (a,l') = viewType l
+                      in (a,(x,l'))
+-}
 
 
 

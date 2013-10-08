@@ -16,6 +16,7 @@ type family Head xs
 type family Tail xs
 type instance Head (x,xs) = x
 type instance Head (Either x xs) = x
+type instance Head (Only x) = x
 
 type instance Tail (x,xs) = xs
 type instance Tail (Either x (Either y ys)) = Either y ys 
