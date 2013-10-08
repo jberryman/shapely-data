@@ -17,8 +17,8 @@ import Control.Arrow((***))
 
 -- We borrow this type-equality comparison trick from Oleg: 
 --   http://okmij.org/ftp/Haskell/ConEQ.hs
-data Yes
-data No
+data Yes = Yes
+data No = No
 
 class And a b c | a b -> c
 instance And Yes b b
@@ -45,21 +45,50 @@ instance (HasAny a (Tail (Either x l)) b)=> HasAny a (Either x l) b
 instance HasAny p (Only p) Yes
 instance (b ~ No)=> HasAny p (Only x) b
 
--- | The non-empty, type-indexed product @l@, out of which we can pull the unique type @a@, leaving @l'@
-class TIP a l l' | a l -> l' where
-    viewType :: l -> (a,l')
+-- We need to be able to choose instances based on *whether* a type is a member
+-- of a class, e.g. if the source is massageable to the left of the target
+-- coproduct we do that, otherwise recursing to the Right. In order to do that
+-- we have to turn the classes we would normally write into *predicates*, i.e.
+-- where no instance would exist above, we now need to define an instance that
+-- unifies a boolean head type variable to 'No'; we then chain these using
+-- boolean algebra in our constraints.
+--
+-- technique adapted from: 
+--     http://www.haskell.org/haskellwiki/GHC/AdvancedOverlap
 
-instance (HasAny a l No)=> TIP a (a,l) l where
+
+-- We avoid code duplication (and lots of programming errors) here & below by
+-- combining the "functional" class with the predicate class. Yes instances
+-- actually work, and No instances never make it past the typechecker.
+class TypeIndexPred a l l' b | a l -> l', a l l' -> b where
+    viewType :: l -> (a,l')
+    viewType = error "viewType: Method called in No predicate instance"
+
+instance (HasAny a l lHasA, Not lHasA b)=> TypeIndexPred a (a,l) l b where
     viewType = id
 
-instance (TIP a l l', (x,l') ~ xl')=> TIP a (x,l) xl' where
+instance (TypeIndexPred a l l' b, xl' ~ (x,l'))=> TypeIndexPred a (x,l) xl' b where
   --viewType = swapFront . fmap viewType  --TODO
     viewType (x,l) = let (a,l') = viewType l
                       in (a,(x,l'))
 
+------------ NON-INSTANCES: ------------
+-- This is ugly & hackish:
+data Void
+instance (No ~ no, Void ~ void)=> TypeIndexPred a () void no
+instance HasAny a Void No
+
+
+class IsAllUnique x b | x -> b
+instance (yes ~ Yes)=> IsAllUnique () yes
+instance (IsAllUnique xs tailUnique
+         , HasAny x xs xInXs
+         , Not xInXs xNotInXs
+         , And tailUnique xNotInXs b
+         )=> IsAllUnique (x,xs) b
+
 
 ---------- wrapper classes we export: ----------
-
 
 -- a flag for 'MassageableNormalRec' indicating we should not recurse into 'AlsoNormal'
 -- subterms. No need to export
@@ -82,40 +111,35 @@ instance (MassageableNormalRec FLAT FLAT x y)=> MassageableNormal x y where
 --
 -- This works as follows (or see examples below):
 --
---   - when the target type @b@ is a 'Product', the terms of the source
---     product(s) are re-arranged to match the target. This must be an
---     unambiguous bijection to typecheck, so all types in the target must be
---     unique i.e. a \"type-indexed product\" (TIP)
+--   - All 'Product's in the source @a@ must be mappable unambiguously to
+--     exactly one product in the target @b@, according to the rules below.
+--     This is a total function, and all product terms in the source are
+--     preserved.
+--
+--   - Products in @a@ come in two flavors which are mapped differently onto
+--     @b@: if a source product contains all uniquely-typed terms we treat it
+--     as a type-indexed product (TIP) and its terms will be freely shuffled to
+--     match its target; otherwise we consider the ordering of product terms to
+--     be significant and require a target product with the same ordering. The
+--     mapping between terms in source and target products is a bijection.
 --
 --   - We map product subterms @'AlsoNormal' a@ with @AlsoNormal b@, by
 --     recursively applying 'massage' (this is the only exception to the above,
---     and the only place where we inspect 'Product' subterms)
+--     and the only place where we inspect 'Product' subterms).
 --
---   - When the target @b@ is a 'Coproduct' we again rearrange product terms as
---     above, but the source 'Product'(s) must be mappable to exactly /one/ of
---     the sum of products on the right
---
---   - When the source @a@ is a 'Coproduct' this conversion may be surjective,
---     i.e. multiple input \"constructors\" may map to the same output coproduct
---     position, but again the individual mappings must be unambiguous.
+--   - When the source @a@ is a 'Coproduct' this conversion may be surjective
+--     w/r/t the product mappings, i.e. multiple source \"constructors\" may map
+--     to the same target constructor.  But again the individual mappings must be
+--     unambiguous.
 --
 -- Here are some examples:
 --
 --    TODO put code we used in tests here !!!
 --
--- Some limitations:
+-- One limitation is we don't support a way to handle recursive structures
+-- beyond simple recursion (e.g. mutually-recusrive pairs of types).
 --
---   1) We don't support a way to handle recursive structures beyond simple recursion (e.g. lists)
---
---   2) All product terms must be unique
---
--- To handle (2) we could either 
---
---   - provide an alternate function which only re-arranges product terms when mapping to a product target, or...
---
---   - when a source product (alone or part of sum) contains any duplicate types, we \"freeze\" it, considering the ordering of its terms to be significant, and only map it to an identical product. (I think I prefer this solution)
---
--- (1) may be possible in the future. Any feedback on the above would be greatly appreciated.
+-- Any feedback on the above behavior would be greatly appreciated.
 class Massageable a b where
     massage :: a -> b
 
@@ -129,127 +153,116 @@ instance (Shapely a, Shapely b
 
 ---------- implementation, left unexported: ----------
 
+-- TODO MAYBE: turn 'pa' and 'pb' into a single proxy variable and we can pass
+--             either `FLAT` or `PROXY s t`?. Bundle all dummy args together so
+--             we can pass them recursively without errors.
 
--- TODO: turn 'pa' and 'pb' into a single proxy variable and we can pass either `FLAT` or `PROXY s t`?
--- keep method hidden:
 class MassageableNormalRec pa pb na nb where
+    -- keep method hidden:
     massageNormalRec :: pa -> pb  -- proxies for 'a' and 'b' to support recursion
                      -> na -> nb  -- (Normal a) is massaged to (Normal b)
-
-instance MassageableNormalRec a b () () where
-    massageNormalRec _ _ = id
-
-instance (MassageableNormalRec a b xxs' ys, TIP y (x,xs) xxs')=> MassageableNormalRec a b (x,xs) (y,ys) where
-    massageNormalRec pa pb = fmap (massageNormalRec pa pb) . viewType
-
--- when the head of target is a recursive 'b' term, we try to pull an
--- equivalent recursive 'a' term out of the source tuple, insisting that they also
--- be massageable.
-instance (MassageableNormalRec a b xxs' ys
-         , TIP (AlsoNormal a) (x,xs) xxs'
-         , MassageableNormalRec a b (Normal a) (Normal b)
-         )=> MassageableNormalRec a b (x,xs) (AlsoNormal b, ys) where
-    massageNormalRec pa pb = (alsoMassage  ***  massageNormalRec pa pb) . viewType -- TODO: or make a massageable instance for AlsoNormal?
-        where alsoMassage :: AlsoNormal a -> AlsoNormal b
-              alsoMassage = Also . massageNormalRec pa pb . normal
 
 instance (MassageableNormalRec a b s t, MassageableNormalRec a b ss t)=> MassageableNormalRec a b (Either s ss) t where
     massageNormalRec pa pb = either (massageNormalRec pa pb) (massageNormalRec pa pb)
 
-instance (MassageableToCoproduct a b (x,y) (Either t ts))=> MassageableNormalRec a b (x,y) (Either t ts) where
-    -- Drop into a 'massage' that observers product ordering, for when we
-    -- hit the base case (x,y) (x',y'):
-    massageNormalRec = massageNormalToCoproduct 
+instance ( IsAllUnique (x,xs) isTIPStyle
+         , ProductToProductPred isTIPStyle a b (x,xs) xss isHeadMassageable
+         , ProductToCoproduct isHeadMassageable a b (x, xs) (Either xss yss)
+    )=> MassageableNormalRec a b (x,xs) (Either xss yss) where
+    massageNormalRec = massageProdCoprod (undefined::isHeadMassageable)
+instance ( IsAllUnique () isTIPStyle  -- TODO THE BUG IS HERE
+         , ProductToProductPred isTIPStyle a b () xss isHeadMassageable
+         , ProductToCoproduct isHeadMassageable a b () (Either xss yss)
+    )=> MassageableNormalRec a b () (Either xss yss) where
+    massageNormalRec = massageProdCoprod (undefined::isHeadMassageable)
 
-instance (MassageableToCoproduct a b () (Either t ts))=> MassageableNormalRec a b () (Either t ts) where
-    massageNormalRec = massageNormalToCoproduct 
+instance ( Product xs, Product ys
+         , IsAllUnique xs isTIPStyle
+         -- Only "real" instances of ProductToProductPred will typecheck:
+         , ProductToProductPred isTIPStyle a b xs ys Yes
+    )=> MassageableNormalRec a b xs ys where
+    massageNormalRec = massageProdProd (undefined::isTIPStyle)
 
-
-
--------
--- When going product -> coproduct we need to be able to choose an instance
--- based on *whether* the source product and left are massageable or not. In
--- order to do that we have to turn all our classes above into *predicates*,
--- i.e. where no instance would exist above, we now need to define an instance
--- that unifies a boolean head type variable to 'No'; we then chain these using
--- boolean algebra in our constraints.
---
--- The point is, I'm sorry...
---
--- technique adapted from: 
---     http://www.haskell.org/haskellwiki/GHC/AdvancedOverlap
+alsoMassage :: MassageableNormalRec pa pb (Normal pa) (Normal pb)=> pa -> pb -> AlsoNormal pa -> AlsoNormal pb
+alsoMassage pa pb = Also . massageNormalRec pa pb . normal
 
 
--- Predicate for determining if MassageableToCoproduct' should map to the Left
--- or recurse to the Right of a Coproduct
-class LeftMassageable pa pb s t b | s t -> b
-instance (LeftMassageable pa pb xxs as b)=> LeftMassageable pa pb xxs (Either as bs) b
--- ...and we reuse this for the product -> product predicate as well:
-instance LeftMassageable pa pb () () Yes
-instance (No ~ no)=> LeftMassageable pa pb (x,y) () no
-instance (No ~ no)=> LeftMassageable pa pb () (x,y) no
-instance ( And b0 b1 b
-         , LeftMassageable pa pb xxs' ys b0
-         , TIPable y (x,xs) xxs' b1
-         )=> LeftMassageable pa pb (x,xs) (y,ys) b
-instance ( And b0 b1 b 
-         , LeftMassageable pa pb xxs' ys b0
-         , TIPable (AlsoNormal pa) (x,xs) xxs' b1
-         -- No need for this to be a predicate:
+------------------------------------------------------------------------------
+-- MASSAGING PRODUCTS TO COPRODUCTS
+
+class ProductToCoproduct isHeadMassageable pa pb s t where
+    massageProdCoprod :: isHeadMassageable -> pa -> pb -> s -> t
+
+instance ( IsAllUnique xss isTIPStyle
+         , ProductToProductPred isTIPStyle pa pb xss xs Yes
+         -- insist unambiguous, else fail typechecking:
+         , AnyMassageable pa pb xss ys No
+         )=> ProductToCoproduct Yes pa pb xss (Either xs ys) where
+    massageProdCoprod _ pa pb = Left . massageProdProd (undefined :: isTIPStyle) pa pb
+
+instance (MassageableNormalRec pa pb yss ys)=> ProductToCoproduct No pa pb yss (Either xs ys) where
+    massageProdCoprod _ pa pb = Right . massageNormalRec pa pb
+
+-- helper predicate class:
+class AnyMassageable pa pb xss yss b | pa pb xss yss -> b
+instance ( IsAllUnique xss isTIPStyle
+         , ProductToProductPred isTIPStyle pa pb xss xs headMassageable
+         , AnyMassageable pa pb xss ys anyTailMassageable
+         , Or headMassageable anyTailMassageable b
+         )=> AnyMassageable pa pb xss (Either xs ys) b
+instance ( IsAllUnique xss isTIPStyle
+         , ProductToProductPred isTIPStyle pa pb xss xs b
+         )=> AnyMassageable pa pb xss xs b
+
+
+------------------------------------------------------------------------------
+-- MASSAGING PRODUCTS TO PRODUCTS
+
+-- combination Predicate/functional class. "No" instances are defined where we
+-- would normally have not defined an instance.
+class ProductToProductPred isTIPStyle pa pb s t b | isTIPStyle pa pb s t -> b where
+    massageProdProd :: isTIPStyle -> pa -> pb -> s -> t
+    massageProdProd = error "massageProdProd: Method called in No predicate instance"
+
+------------ INSTANCES: ------------
+
+instance ProductToProductPred either pa pb () () Yes where
+    massageProdProd _ _ _ = id
+
+
+---- TIP-style, where all source product terms are unique ----
+
+instance ( ProductToProductPred Yes pa pb xxs' ys tailsTIPMassageable
+         , TypeIndexPred y (x,xs) xxs' xxsHasY
+         , And tailsTIPMassageable xxsHasY b
+    )=> ProductToProductPred Yes pa pb (x,xs) (y,ys) b where
+    massageProdProd _ pa pb = fmap (massageProdProd Yes pa pb) . viewType
+
+-- when the head of target is a recursive 'b' term, we try to pull an
+-- equivalent recursive 'a' term out of the source tuple, insisting that they also
+-- be massageable.
+instance ( ProductToProductPred Yes pa pb xxs' ys tailsTIPMassageable
+         , TypeIndexPred (AlsoNormal pa) (x,xs) xxs' xxsHasRecursiveA
+         , And tailsTIPMassageable xxsHasRecursiveA b
          , MassageableNormalRec pa pb (Normal pa) (Normal pb)
-         )=> LeftMassageable pa pb (x,xs) (AlsoNormal pb, ys) b
-
--- TODO This isn't really what we want; see below*
-class TIPable a l l' b | a l -> l', a l l' -> b
--- Yes, but only if tail has no 'a':
-instance (HasAny a l b0, Not b0 b)=> TIPable a (a,l) l b
--- recurse, looking in tail for 'a':
-instance (TIPable a l l' b, (x,l') ~ xl')=> TIPable a (x,l) xl' b
-instance (No ~ no, No ~ none)=> TIPable a () none no
--- *our TIPable class doesn't really work as a predicate, since the decomposition
--- (whose existence we want to express in 'b') is in the instance head, so
--- in our fall-through instance above we replace where the list remainder
--- should be with 'No' and catch it in the instances below. Sorry...
-instance (No ~ no)=> LeftMassageable pa pb No () no
-instance (No ~ no)=> LeftMassageable pa pb No (x,y) no
-instance (No ~ no)=> TIPable a No x no
-instance (No ~ no)=> HasAny a No no
-
--- This lets us enforce unambiguous mapping to a Coproduct below; again,
--- probably more ugly than necessary:
-class AnyLeftMassageable pa pb xxs ys b | xxs ys -> b
-instance (LeftMassageable pa pb xxs (x,xs) b)=> AnyLeftMassageable pa pb xxs (x,xs) b
-instance (LeftMassageable pa pb xxs () b)=> AnyLeftMassageable pa pb xxs () b
-instance (LeftMassageable pa pb xxs xs b0
-         , AnyLeftMassageable pa pb xxs ys b1
-         , Or b0 b1 b
-         )=> AnyLeftMassageable pa pb xxs (Either xs ys) b
-
--- this defines the different instance options we can "select" depending on
--- whether the head is massageable product or not:
-class MassageableToCoproduct' leftMassageable pa pb  s t where  -- TODO: add (Coproduct s)=>
-    massageNormalToCoproduct' :: leftMassageable -> pa -> pb -> s -> t
-
-instance (MassageableNormalRec pa pb xxs xsx
-         , AnyLeftMassageable pa pb xxs ys No -- unambiguous mapping, else fails to typecheck
-         )=> MassageableToCoproduct' Yes pa pb xxs (Either xsx ys) where -- TODO: enforce that tail is NOT massageable
-    massageNormalToCoproduct' _ pa pb = Left . massageNormalRec pa pb
-
-instance (MassageableNormalRec pa pb xxs (x,xs)
-         )=> MassageableToCoproduct' Yes pa pb xxs (x,xs) where
-    massageNormalToCoproduct' _ = massageNormalRec
-
-instance MassageableToCoproduct' Yes pa pb () () where -- TODO or combinable with above??
-    massageNormalToCoproduct' _ _ _ = id
-
-instance (MassageableToCoproduct pa pb xxs ys
-            )=> MassageableToCoproduct' No pa pb xxs (Either xsx ys) where
-    massageNormalToCoproduct' _ pa pb = Right . massageNormalToCoproduct pa pb -- N.B. not massageNormalToCoproduct'
+    )=> ProductToProductPred Yes pa pb (x,xs) (AlsoNormal pb, ys) b where
+    massageProdProd _ pa pb = (alsoMassage pa pb *** massageProdProd Yes pa pb) . viewType -- TODO: or make a massageable instance for AlsoNormal?
 
 
--- our single instance class:
-class MassageableToCoproduct pa pb s t where
-    massageNormalToCoproduct :: pa -> pb -> s -> t
+---- order-preserving style: ----
 
-instance (MassageableToCoproduct' b pa pb s t, LeftMassageable pa pb s t b)=> MassageableToCoproduct pa pb s t where
-    massageNormalToCoproduct = massageNormalToCoproduct' (undefined :: b)
+instance (ProductToProductPred No pa pb ys ys' b
+    )=> ProductToProductPred No pa pb (x,ys) (x,ys') b where
+    massageProdProd _ pa pb = fmap (massageProdProd No pa pb)
+
+-- when massaging ordered tuples we can simply match equivalent AlsoNormal
+-- terms on each fst position:
+instance ( ProductToProductPred No pa pb ys ys' b
+         , MassageableNormalRec pa pb (Normal pa) (Normal pb)
+    )=> ProductToProductPred No pa pb (AlsoNormal pa, ys) (AlsoNormal pb, ys') b where
+    massageProdProd _ pa pb = alsoMassage pa pb *** massageProdProd No pa pb
+
+
+------------ NON-INSTANCES: ------------
+
+instance (No ~ no)=> ProductToProductPred either pa pb s t no

@@ -106,14 +106,31 @@ test_extract = let s' :: Either (Int,()) (Either (Int,()) (Int,()))
     *Data.Shapely.Compose.Massageable> massageNormal () :: Either () (String,(Char,()))
     *Data.Shapely.Compose.Massageable> massageNormal () :: Either (String,(Char,())) ()
     *Data.Shapely.Compose.Massageable> massageNormal b :: Either (Char,(Int,())) (String,(Char,()))
-    *Data.Shapely.Compose.Massageable> massageNormal b :: Either (Char,(String,(Int,()))) (String,(Char,()))
+    *Data.Shapely.Compose.Massageable> massageNormal b :: Either (Char,(String,(Int,()))) (Either () (String,(Char,())))
     *Data.Shapely.Compose.Massageable> massageNormal b :: Either (String,()) (String,(Char,()))
 
 *Data.Shapely.Compose.Massageable Control.Arrow> let c = (Left ('a',("hi",()))) :: Either (Char,(String,())) ()
 
     *Data.Shapely.Compose.Massageable Control.Arrow> massageNormal c :: Either (Int,()) (Either (String,(Char,())) ())
     
-Testing recursion:
+    -- must not typecheck:
+    massageNormal c :: Either (Int,()) (Either (String,(Char,())) (String,()))
+
+-- Testing ordered tuples:
+*Data.Shapely.Compose.Massageable Control.Arrow> let d = (Left ('a',('b',(3,())))) :: Either (Char,(Char,(Int,()))) ()
+
+    -- must not typecheck
+    massageNormal d :: Either (Char,(Char,(Int,()))) (Either () (Char,(Char,(Int,()))))
+    massageNormal d :: Either (Char,(Char,(Bool,()))) (Either (Int,()) (Char,(Char,(Int,()))))
+
+    -- must typecheck:
+    massageNormal d :: Either (Char,(Char,(Bool,()))) (Either () (Char,(Char,(Int,()))))
+    massageNormal d :: Either (Char,(Int,(Char,()))) (Either () (Char,(Char,(Int,())))) == Right $ Right ('a',('b',(3,())))
+    massageNormal ('a',('b',(True,()))) :: Either (Bool,()) (Char,(Char,(Bool,())))
+    massageNormal ('a',('b',())) :: Either (Char,(Char,())) (Either () (Int,()))
+
+    
+-- Testing recursion:
 
 
     -- [a] with both order of products and coproducts reversed:
