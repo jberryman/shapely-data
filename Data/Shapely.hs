@@ -38,8 +38,8 @@ module Data.Shapely (
 -- TODO: export TH functionality here
 --import Data.Shapely.TH
 import Data.Shapely.Classes
-import Data.Shapely.Compose.Classes
-import Data.Shapely.Compose.Massageable
+import Data.Shapely.Normal.Classes
+import Data.Shapely.Normal.Massageable
 
 
 

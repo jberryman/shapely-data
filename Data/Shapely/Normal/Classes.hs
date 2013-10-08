@@ -1,5 +1,5 @@
 {-# LANGUAGE TypeFamilies, TypeOperators, FlexibleInstances, UndecidableInstances #-}
-module Data.Shapely.Compose.Classes
+module Data.Shapely.Normal.Classes
     where
 
 import Data.Shapely.Classes

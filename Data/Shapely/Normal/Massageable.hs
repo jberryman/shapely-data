@@ -4,11 +4,11 @@
 {-# LANGUAGE OverlappingInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}  -- for "advanced overlap" solution
-module Data.Shapely.Compose.Massageable
+module Data.Shapely.Normal.Massageable
     where
 
 import Data.Shapely.Classes
-import Data.Shapely.Compose.Classes
+import Data.Shapely.Normal.Classes
 
 import Control.Arrow((***))
 

@@ -7,7 +7,7 @@
 {-# LANGUAGE FunctionalDependencies #-}  -- for Homogeneous
 
 -- TODO: CONSIDER CHANGING NAME TO : Normal
-module Data.Shapely.Compose (
+module Data.Shapely.Normal (
 {- |
 Functions for composing and modifying our 'Normal' form types.
 
@@ -52,9 +52,9 @@ compatibility issues when this module is improved.
 
 import Data.Shapely
 import Data.Shapely.Category
-import Data.Shapely.Compose.Classes
+import Data.Shapely.Normal.Classes
 import Data.Shapely.Classes
-import Data.Shapely.Compose.Massageable
+import Data.Shapely.Normal.Massageable
 import Control.Applicative() -- Functor instances for (,) and Either
 
 import Prelude hiding (replicate,concat,reverse,uncurry)

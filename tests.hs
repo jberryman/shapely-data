@@ -10,7 +10,7 @@ module Main
 -- module.
 
 import Data.Shapely
-import Data.Shapely.Compose as Sh
+import Data.Shapely.Normal as Sh
 
 s :: (Int,()) :+: (Char,()) :+: (Bool,())
 --   Either (Int,()) (Either (Char,()) (Bool,()))
