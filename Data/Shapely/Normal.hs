@@ -60,7 +60,6 @@ import qualified Prelude
 
 
 -- TODO?
---      - review TODOs and do another round of renaming
 --      - implement TH stuff, derive instances for all built-in types
 --      - implement thorough tests for 'massage', and TH-derived stuff.
 --          - especially recursion, which we haven't tested well

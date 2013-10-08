@@ -9,19 +9,13 @@
 -- TODO clean up above
 module Data.Shapely (
 {- | 
-/Issues and Limitations:/  -- TODO remove some of these
+/Issues and Limitations:/
 .
   - Users can't express recursive structure of types without depending on this
     for 'AlsoNormal'
 .
-  - This is probably not useful for people using records as their interface,
-    since they're treating product types as sets of terms where order is not
-    significant
-.
-  - This new way of working with types presents some awkwardness in that the
-    ordering of constructors in a 'Coproduct' type becomes significant (we
-    are used to ordering of product terms being significant in pattern-
-    matching).
+  - 'massage' does not support mutually-recursive types and other more
+    complicated recursion schemes.
 
 /Sources, Inspiration, Prior Art/:  --TODO fill this out
 
