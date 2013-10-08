@@ -9,6 +9,7 @@ module Data.Shapely.Normal.Massageable
 
 import Data.Shapely.Classes
 import Data.Shapely.Normal.Classes
+import Data.Shapely.Category(swapFront)
 
 import Control.Arrow((***))
 
@@ -68,9 +69,7 @@ instance (HasAny a l lHasA, Not lHasA b)=> TypeIndexPred a (a,l) l b where
     viewType = id
 
 instance (TypeIndexPred a l l' b, xl' ~ (x,l'))=> TypeIndexPred a (x,l) xl' b where
-  --viewType = swapFront . fmap viewType  --TODO
-    viewType (x,l) = let (a,l') = viewType l
-                      in (a,(x,l'))
+    viewType = swapFront . fmap viewType
 
 ------------ NON-INSTANCES: ------------
 -- This is ugly & hackish:

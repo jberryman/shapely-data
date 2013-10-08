@@ -5,8 +5,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}  -- for nested Type families. We intend these to be closed anyway, so no biggie
 {-# LANGUAGE FunctionalDependencies #-}  -- for Homogeneous
-
--- TODO: CONSIDER CHANGING NAME TO : Normal
 module Data.Shapely.Normal (
 {- |
 Functions for composing and modifying our 'Normal' form types.
@@ -32,10 +30,10 @@ compatibility issues when this module is improved.
     -- ** Convenience Type synonyms
     , (:*:), (:+:)
 
-    -- * Operations on Products:
+    -- * Operations on Products
     , Uncurry(..)
     , Homogeneous(..)
-    -- ** Convenience
+    -- ** Composition & Construction Convenience Operators
     , (.++.), (|>), (<|), (<!)
 
     -- * Cartesian and CoCartesian-like
@@ -66,6 +64,7 @@ import qualified Prelude
 --      - implement TH stuff, derive instances for all built-in types
 --      - implement thorough tests for 'massage', and TH-derived stuff.
 --          - especially recursion, which we haven't tested well
+--      - take last look at easy construction of normal-form types
 --      - create some examples that re-create GHC generics motivation
 --      - use some scheme to close type classes
 --         - figure out exports
@@ -125,9 +124,7 @@ instance (HasAny a l No)=> TIP a (a,l) l where
     viewType = id
 
 instance (TIP a l l', (x,l') ~ xl')=> TIP a (x,l) xl' where
-  --viewType = swapFront . fmap viewType  --TODO
-    viewType (x,l) = let (a,l') = viewType l
-                      in (a,(x,l'))
+    viewType = swapFront . fmap viewType
 -}
 
 
@@ -217,9 +214,6 @@ class Shiftable t where
     
 type ShiftedL t = Tail t :> Head t
 type ShiftedR t = Last t :< Init t
-
-swapFront :: Symmetric (->) p => p b (p a c) -> p a (p b c)
-swapFront = associate . first swap . disassociate
 
 instance Shiftable (x,()) where
     shiftl = id

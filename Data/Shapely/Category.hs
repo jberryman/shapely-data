@@ -1,4 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies #-}
+{-# LANGUAGE FlexibleContexts #-} --for swapFront
 module Data.Shapely.Category
     where
 
@@ -54,6 +55,9 @@ instance Associative (->) Either where
     disassociate (Left a) = Left (Left a)
     disassociate (Right (Left b)) = Left (Right b)
     disassociate (Right (Right c)) = Right c
+
+swapFront :: Symmetric (->) p => p b (p a c) -> p a (p b c)
+swapFront = associate . first swap . disassociate
 
 
 -- from Control.Category.Braided -------------------------------------------

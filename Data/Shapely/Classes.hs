@@ -51,7 +51,7 @@ class Shapely a where
     -- See the documentation for 'mkShapely', and the instances defined here
     -- for details.
     type Normal a
-    to :: a -> Normal a    -- TODO: rename toal, fromal. Or... to/from  ?
+    to :: a -> Normal a
     from :: Normal a -> a
 
 -- | Note, the normal form for a tuple is not itself
@@ -78,7 +78,6 @@ instance Shapely (Either x y) where
 
 ---- TODO: more instances by hand. Check their equivalents in tests of TH code by using a newtype wrapper. -----
 
--- TODO: alternate names: Another, ChildNormal, RecNormal
 -- | A wrapper for recursive child occurences of a 'Normal'-ized type
 newtype AlsoNormal a = Also { normal :: Normal a }
 deriving instance (Show (Normal a))=> Show (AlsoNormal a)
