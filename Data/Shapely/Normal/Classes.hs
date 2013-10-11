@@ -60,7 +60,7 @@ type instance Only a :> b = Either a b -- TODO: insist on two instances for: b ~
 
 -- | A singleton inhabited 'Coproduct'. This is an intermediate type useful for
 -- constructing Conproducts, and in our instances (see e.g. 'Tail')
-newtype Only a = Only a
+newtype Only a = Only { just :: a }
 
 type instance NormalConstr (Only a) = Either
 instance (Product t)=> Coproduct (Only t)

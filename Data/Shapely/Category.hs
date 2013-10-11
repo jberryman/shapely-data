@@ -58,6 +58,8 @@ instance Associative (->) Either where
 
 swapFront :: Symmetric (->) p => p b (p a c) -> p a (p b c)
 swapFront = associate . first swap . disassociate
+-- To make work with Either x y we need a class with something like:
+-- swapFront :: (a ~ Head (Tail (p b cs)), b ~ Head bcs)=> p b cs -> p a bcs
 
 
 -- from Control.Category.Braided -------------------------------------------

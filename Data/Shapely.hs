@@ -17,12 +17,7 @@ module Data.Shapely (
   - 'massage' does not support mutually-recursive types and other more
     complicated recursion schemes.
 
-/Sources, Inspiration, Prior Art/:  --TODO fill this out
-
-  - ekmett's 'categories' package
-
-  - HList
--}
+ -}
       Product(..), Coproduct(..)
     , Shapely(..), AlsoNormal(..)
     , Isomorphic(..), coerce, Massageable(..)

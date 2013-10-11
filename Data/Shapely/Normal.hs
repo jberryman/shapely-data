@@ -4,7 +4,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}  -- for nested Type families. We intend these to be closed anyway, so no biggie
-{-# LANGUAGE FunctionalDependencies #-}  -- for Homogeneous
+{-# LANGUAGE FunctionalDependencies #-}
 module Data.Shapely.Normal (
 {- |
 Functions for composing and modifying our 'Normal' form types.
@@ -27,22 +27,24 @@ compatibility issues when this module is improved.
     , viewr
     , Appendable(..)
     , Concatable(..)
+    -- ** Fanned Application
+    , Fanin(..), Fanout(..)
     -- ** Convenience Type synonyms
-    , (:*:), (:+:)
+    , (:*:), (:*!), (:+:)
 
     -- * Operations on Products
-    , Uncurry(..)
-    , Homogeneous(..)
+  --, Uncurry(..) DEAD
+    , List(..)
     -- ** Composition & Construction Convenience Operators
     , (.++.), (|>), (<|), (<!)
 
     -- * Cartesian and CoCartesian-like
     -- ** Cartesian
-    , Replicated(..)
-    , Fanout(..)
+  --, Replicated(..) -- MOVED / DEAD
+  --, Fanout(..)  --MOVED
     -- ** CoCartesian
     , Extract(..)
-    , Fanin(..)
+  --, Fanin(..) --MOVED
 
     -- * Product and Coproduct Conversions
     , MassageableNormal(..)
@@ -55,11 +57,16 @@ import Data.Shapely.Classes
 import Data.Shapely.Normal.Massageable
 import Control.Applicative() -- Functor instances for (,) and Either
 
-import Prelude hiding (replicate,concat,reverse,uncurry)
+import Prelude hiding (replicate,concat,reverse, map)
 import qualified Prelude 
 
 
 -- TODO?
+--      - fix bugs using fmapTail, improve working using fmapTail, and fix/add tests
+--      - add the TIP-style function, re-order exports grouping 'extract'-style functions
+--      - replace pattern matching on Only with `just`
+--      - fix docs
+--
 --      - implement TH stuff, derive instances for all built-in types
 --      - implement thorough tests for 'massage', and TH-derived stuff.
 --          - especially recursion, which we haven't tested well
@@ -96,8 +103,8 @@ import qualified Prelude
 --         but should we (can we) deal with differing-length prods like zip?  ... type Zipped () (a,b) = () , Zipped (a,b) () = () , Zipped (a,bs) (x,ys) = ( (a,(x,())) , Zipped bs ys) ...or for prods of prods we probably will be wanting a fold on products... oy
 --         note also: above should be named "transpose"
 --     Homogeneous only:
---       - and, or, sum, product, maximum, minimum (NO: toList is sufficient for all of these folds)
---       - folds, maps, scans
+--       - and, or, sum, product, maximum, minimum, folds (NO: toList is sufficient for all of these folds)
+--       - maps, scans
 --       - sort/insert ?
 --
 -- -------
@@ -128,11 +135,12 @@ instance (TIP a l l', (x,l') ~ xl')=> TIP a (x,l) xl' where
 
 
 
-infixr :+:
-infixr :*:
-type (:*:) = (,)
+infixr 5 :+:
+infixr 6 :*:
+infixr 6 :*!  -- TODO better fixity?
 type (:+:) = Either
-
+type (:*:) = (,)
+type (x :*! y) = (x,(y,()))
 
 
 -- TODO: use instance defaulting here for these definitions after they are settled?
@@ -147,7 +155,7 @@ viewr = swap . shiftr
 
 
 -- | Class supporting normal type equivalent to list @concat@ function, for
--- 'Coproduct's as well as 'Product's
+-- 'Coproduct's as well as 'Product's.
 class Concatable xs where
     type Concated xs
     concat :: xs -> Concated xs
@@ -156,7 +164,10 @@ instance Concatable () where
     type Concated () = ()
     concat = id
 
-instance (Concatable yss, Appendable xs (Concated yss), Product (Concated yss))=> Concatable (xs,yss) where
+-- | combine a product of products
+instance (Concatable yss, Appendable xs (Concated yss)
+         , Product xs, Product (Concated yss)
+    )=> Concatable (xs,yss) where
     type Concated (xs,yss) = xs :++: Concated yss
     concat = append . fmap concat
 
@@ -170,14 +181,16 @@ instance Concatable (Either (x,ys) es) where
     type Concated (Either (x,ys) es) = (Either (x,ys) es)
     concat = id
 
--- TODO: restrict (Either x ys) to Coproduct?
-instance (Concatable ess, Appendable (Either x ys) (Concated ess))=> Concatable (Either (Either x ys) ess) where
+-- | Note here that @xs@ is not a 'Coproduct', since it is a sum of sums.
+instance (Concatable ess, Appendable (Either x ys) (Concated ess)
+         , Coproduct (Either x ys), Coproduct (Concated ess)
+    )=> Concatable (Either (Either x ys) ess) where
     type Concated (Either (Either x ys) ess) = Either x ys :++: Concated ess
     concat = append . fmap concat
 
 
 
--- | Reversing Products and Coproducts
+-- | Reversing 'Products' and 'Coproduct's
 class Reversable t where
     type Reversed t
     type Reversed t = Reversed (Tail t) :> Head t
@@ -187,24 +200,28 @@ instance Reversable () where
     type Reversed () = ()
     reverse = id
 
-instance Reversable (Only x) where
-    type Reversed (Only x) = (Only x)
-    reverse = id
-
 instance (Reversable xs
          , Shiftable (x, Reversed xs)
          )=> Reversable (x,xs) where
     reverse = shiftl . fmap reverse 
 
-instance (Reversable xs
+instance Reversable (Either x ()) where
+    type Reversed (Either x ()) = Either () x
+    reverse = swap
+instance Reversable (Either x (a,b)) where
+    type Reversed (Either x (a,b)) = Either (a,b) x
+    reverse = swap
+
+instance ( xs ~ Either y zs  -- for readability
+         , Reversed (Either x xs) 
+            ~ ShiftedL (Either x (Reversed xs))
+         , Reversable xs
          , Shiftable (Either x (Reversed xs))
-         , (Tail (Either x (Reversed xs)) :> x)
-           ~ (Reversed (Tail (Either x xs)) :> x) -- TODO improve this?
-         )=> Reversable (Either x xs) where
+    )=> Reversable (Either x (Either y zs)) where
     reverse = shiftl . fmap reverse 
 
 
-
+-- TODO: make instance for (), making ShiftedL/R assoc types
 -- | a class for shifting a sum or product left or right by one element, i.e. a
 -- logical shift
 class Shiftable t where
@@ -218,10 +235,9 @@ instance Shiftable (x,()) where
     shiftl = id
     shiftr = id
 
--- TODO abstract these constraints better:
 instance (Shiftable (y,zs)
         , Shiftable (x, zs)
-        , ShiftedR (y,zs) ~ (Last (y, zs), Init (y, zs)) -- TODO replace with better constraint
+        , ShiftedR (y,zs) ~ (Last (y, zs), Init (y, zs))
         )=> Shiftable (x,(y,zs)) where
     shiftl = fmap shiftl . swapFront
     shiftr = swapFront . fmap shiftr
@@ -229,12 +245,10 @@ instance (Shiftable (y,zs)
 instance Shiftable (Either a ()) where
     shiftl = swap
     shiftr = swap
-
 instance Shiftable (Either a (x,y)) where
     shiftl = swap
     shiftr = swap
 
---- TODO: simplify these constraints:
 instance (Shiftable (Either y zs)
         , Shiftable (Either x zs)
         , (Tail (Either x zs) :> x)
@@ -247,26 +261,37 @@ instance (Shiftable (Either y zs)
     shiftl = fmap shiftl . swapFront
     shiftr = swapFront . fmap shiftr
 
--- | A class supporting an N-ary 'uncurry' operation for applying functions to
--- 'Normal' 'Product's of matching arity. e.g.
---
--- > uncurry (+) (1,(2,())) == 3
-class Uncurry t r where
-    -- | A function capable of consuming the product @t@ and producing @r@.
+
+-- | A class for applying a structure to a 'Product' or 'Coproduct' @t@,
+-- yielding an @r@.
+class Fanin t r where
+    -- | A structure capable of consuming the terms @t@ and producing @r@.
     type t :->-> r
-    uncurry :: (t :->-> r) -> t -> r
+    fanin :: (t :->-> r) -> t -> r
 
--- | uncurry = const
-instance Uncurry () r where
+-- | > fanin = const
+instance Fanin () r where
     type () :->-> r = r
-    uncurry = const
+    fanin = const
 
-instance (Uncurry bs r)=> Uncurry (a,bs) r where
+-- | n-ary @uncurry@ on 'Product's, for instance, e.g.
+--
+-- > fanin (+) (1,(2,())) == 3
+instance (Fanin bs r)=> Fanin (a,bs) r where
     type (a,bs) :->-> r = a -> bs :->-> r
-    uncurry f = Prelude.uncurry (uncurry . f)
+    fanin f = uncurry (fanin . f)
 
+-- | n-ary @fanin@ on 'Coproduct's
+--
+-- > let s = Right $ Right (1,([2..5],())) :: Either (Int,()) ( Either () (Int,([Int],())) )
+-- >  in fanin ((+1), (3, (foldr (+), ()))) s  ==  15
+instance (Fanin (Tail (Either a bs)) r, EitherTail bs, Fanin a r)=> Fanin (Either a bs) r where
+    type Either a bs :->-> r = (a :->-> r, Tail (Either a bs) :->-> r)
+    fanin (f,fs) = eitherTail (fanin f) (fanin fs)
 
-
+instance (Fanin a r)=> Fanin (Only a) r where
+    type Only a :->-> r = (a :->-> r, ())
+    fanin (f,()) = fanin f . just
 
 
 -- | A @(++)@-like append operation on 'Product's and 'Coproduct's. See also
@@ -291,7 +316,6 @@ instance (Product us, Appendable ts us)=> Appendable (a,ts) us where
 instance (Coproduct us)=> Appendable (Either a ()) us where
     type Either a () :++: us = Either a (Either () us)
     append = associate
-
 instance (Coproduct us)=> Appendable (Either a (b,c)) us where
     type Either a (b,c) :++: us = Either a (Either (b,c) us)
     append = associate
@@ -335,117 +359,79 @@ xs |> x = shiftl (x,xs)
 x <! y = (x,(y,()))
 
 
+-- | A class for homogeneous products with terms all of type @a@.
+class (Product as)=> List a as | as -> a where
+    -- | Convert a homogeneous product to a list.
+    toList :: as -> [a]
 
--- TODO: add this to a different class??
-class Homogeneous a p | p -> a where
-    toList :: p -> [a]
-
-instance Homogeneous a () where
-    toList () = []
-
-instance (Homogeneous a bs)=> Homogeneous a (a,bs) where
-    toList (a,bs) = a : toList bs
-
-
-
--- TODO it would be nice to be able to put these in the same class or define
--- `diag` in terms of `fanout`.
-
--- | "Fill" a product with an initial value. If the "length" of the resulting
--- product can't be inferred from context, provide a sype signature:
---
--- > truths = replicate True :: (Bool,(Bool,(Bool,())))
---
--- See also 'extract' for 'Coproduct's
-class Replicated a as | as -> a where
-    -- | Equivalent to @diag@ 
+    -- | "Fill" a product with an initial value. If the size of the resulting
+    -- product can't be inferred from context, provide a sype signature:
+    --
+    -- > truths = replicate True :: (Bool,(Bool,(Bool,())))
+    --
+    -- An n-ary @codiag@. See also 'extract' for 'Coproduct's
     replicate :: a -> as
 
-instance Replicated a () where
+  -- map :: (bs `OfLength` as, List b bs)=> (a -> b) -> as -> bs --TODO
+
+instance List a () where
+    toList () = []
     replicate _ = ()
 
-instance (Replicated a as)=> Replicated a (a,as) where
+instance (List a as)=> List a (a,as) where
+    toList (a,as) = a : toList as
     replicate a = (a,replicate a)
 
-class Fanout a fs | fs -> a where
-    type FannedOut fs
-    -- | equivalent to @(&&&)@
-    fanout :: fs -> (a -> FannedOut fs)
 
-instance (Fanout a fs)=> Fanout a (a -> x,fs) where
-    type FannedOut (a -> x, fs) = (x, FannedOut fs) 
-    fanout (f,fs) a = (f a, fanout fs a)
 
-instance Fanout a () where
+-- | Apply a 'Product' or 'Coproduct' structure @fs@ to the term @s@ yielding a
+-- product or coproduct @FannedOut fs@.
+--
+-- See also 'Fanin'.
+class Fanout s fs | fs -> s where
+    type FannedOut fs  -- TODO better name here/ Like 'Result'?
+    fanout :: fs -> (s -> FannedOut fs)
+
+instance Fanout s () where
     type FannedOut () = ()
-    fanout () _ = ()
+    fanout = const
+
+-- ...and this is the result of @uncurry@ with arrows reversed.
+-- | an n-ary @(&&&)@
+instance (Fanout s fs)=> Fanout s (s -> x,fs) where
+    type FannedOut (s -> x, fs) = (x, FannedOut fs) 
+    fanout (f,fs) s = (f s, fanout fs s)
+
+-- @fs@ is what we need to get @r -> E a b@, which is the result of @fanin@
+-- with the arrow reversed. I'm not sure what to call this.
+-- | e.g. 
+--
+-- > fanout (Left ((+1),()) :: Either (Int -> Int,()) (Int -> Bool,())) 1  ==  Left (2,())
+instance (Fanout s fs, Fanout s fss)=> Fanout s (Either fs fss) where
+    type FannedOut (Either fs fss) = Either (FannedOut fs) (FannedOut fss)
+    fanout = either ((Left .) . fanout) ((Right .) . fanout) -- NOTE eitherTail/Only instance unnecessary
 
 
-
--- | Extract a value from a homogeneous sum.
+-- | Extract the value from a homogeneous sum.
 --
 -- See also 'replicate' for 'Product's.
 class Product a=> Extract a as | as -> a where
-    -- | generalizes @codiag@:
+    -- | an n-ary @codiag@:
     extract :: as -> a
 
-instance Extract () () where
-    extract = id
+instance (Product a)=> Extract a (Only a) where
+    extract = just
 
-instance (Product bs)=> Extract (a,bs) (a,bs) where
-    extract = id
-
-instance (Extract a as)=> Extract a (Either a as) where
-    extract = either id extract
+instance (EitherTail as, Extract a (Tail (Either a as)))=> Extract a (Either a as) where
+    extract = eitherTail id extract
 
 
--- putting the product arg on LHS of the FannedIn func gives us more
--- flexibility (copord doesn't have to be strictly a sum of prods) but makes
--- inferrence more tricky (a user is probably more likely to be combining
--- polymorphic functions for application to a generated coproduct)
-class Fanin s c | s -> c where
-    type FannedIn s c
-    -- | Apply an uncurried 'Product' of functions of type @x,y,z,etc -> c@ to a
-    -- 'Coproduct' of @x, y, z@, yielding a @c@. E.g.
-    --
-    -- > let s' :: Either  (Int,())  ( Either  ()  ([Int],([Int],())) )
-    -- >     s' = Left (1,()) 
-    -- >  in fanin ((+1), (3, ((length .) . (++), ()))) s'  ==  2
-    --
-    -- This is like (@|||@) and can be thought of as a generalization of
-    -- 'either'.
-    fanin :: FannedIn s c -> s -> c
-
--- so we need to make products the base case for the final term of coproducts:
-instance (Uncurry () c)=> Fanin () c where
-    type FannedIn () c = ( () :->-> c , ())
-    fanin = uncurry . fst
-
-instance (Uncurry (x,xs) c)=> Fanin (x,xs) c where
-    type FannedIn (x,xs) c = ((x,xs) :->-> c, ())
-    fanin = uncurry . fst
-
-instance (Fanin bs c, Uncurry a c)=> Fanin (Either a bs) c where
-    type FannedIn (Either a bs) c = (a :->-> c, FannedIn bs c)
-    fanin (f,fs) = either (uncurry f) (fanin fs)
-
-{- TODO: Could be simplified to....
-instance (Fanin (Tail (Either a bs)) c, Uncurry a c)=> Fanin (Either a bs) c where
-    type FannedIn (Either a bs) c = (a :->-> c, FannedIn (Tail (Either a bs)) c) -- this won't work
-    fanin (f,fs) = either (uncurry f) (fanin fs) -- <- not quite
-
-instance (Uncurry a c)=> Fanin (Only a) c where
-    type FannedIn (Only a) c = (a :->-> c,())
-    fanin (f,()) (Only a) = uncurry f a
-
-...if we had a function like :: Either a (Either b c) -> Either a (Either b (Only c))
-
-Probably some of these other definitions could as well. e.g. 'Extract'
-
------ This might work:
-
+-- Helpers for recursion on coproducts:
 class EitherTail b where
     eitherTail :: (a -> c) -> (Tail (Either a b) -> c) -> Either a b -> c
+
+instance EitherTail () where
+    eitherTail f g = either f g . fmap Only
 
 instance EitherTail (x,y) where
     eitherTail f g = either f g . fmap Only
@@ -453,6 +439,16 @@ instance EitherTail (x,y) where
 instance EitherTail (Either x y) where
     eitherTail = either
 
-fmapTail :: (EitherTail b)=> (Tail (Either a b) -> b') -> Either a b -> Either a b'
-fmapTail f = eitherTail Left (Right . f)
--}
+{- NOTE initially tried this to avoid needing to define identical Coproduct
+ - base cases for (a,b) and (), but it made instance constraint very noisey.
+ - Not worth it.
+-- map onto Tail of a Coproduct, yielding a Coproduct, and reconstructing. 
+class (Coproduct b')=> FmapTail b' where
+    fmapTail :: (EitherTail b)=> (Tail (Either a b) -> b') -> Either a b -> (a :< b')
+
+instance (Coproduct (Either x y))=> FmapTail (Either x y) where
+    fmapTail f = eitherTail Left (Right . f)
+
+instance (Product x)=> FmapTail (Only x) where
+    fmapTail f = eitherTail Left (Right . just . f)
+    -}
