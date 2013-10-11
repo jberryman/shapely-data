@@ -11,6 +11,7 @@ module Main
 
 import Data.Shapely
 import Data.Shapely.Normal as Sh
+import Data.Shapely.Normal.TypeIndexed
 
 s :: (Int,()) :+: (Char,()) :+: (Bool :*! String)
 --   Either (Int,()) (Either (Char,()) (Bool,(String,())))
@@ -148,3 +149,18 @@ test_extract = let s' :: Either (Int,()) (Either (Int,()) (Int,()))
     massageRec "123"  :: Tsil Char
 
  -}
+
+
+-------- TYPE-INDEXED 
+
+test_viewFirstTypeOf_prod =  (('a',(False,(True,("potato",())))) `viewFirstTypeOf` True) 
+                              == (False,('a',(True,("potato",()))))
+test_viewTypeOf_prod =  (('a',(False,(True,("potato",())))) `viewFirstTypeOf` "tuber") 
+                        == ("potato",('a',(False,(True,()))))
+
+{- MUST NOT TYPECHECK: 
+     ('a',(False,(True,("potato",())))) `viewTypeOf` True
+-}
+
+nub_prod :: (Int, (Char, (Bool, ())))
+nub_prod = nubType (undefined :: (Int,(Char,(Int,(Int,(Bool,(Bool,())))))))

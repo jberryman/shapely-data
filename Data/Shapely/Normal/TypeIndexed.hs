@@ -1,7 +1,12 @@
 {-# LANGUAGE MultiParamTypeClasses , FlexibleInstances, FunctionalDependencies , FlexibleContexts 
-  , UndecidableInstances #-}
-module Data.Shapely.Normal.TypeIndexed
-    where
+  , OverlappingInstances , UndecidableInstances #-}
+module Data.Shapely.Normal.TypeIndexed (
+      HasAny(..)
+    , viewType , viewTypeOf
+    , HavingType(..)
+    , DeleteAllType(..)
+    , NubType(..)
+    ) where
 
 -- This is mostly in its oqwn module because it uses Overlapping instances.
 
@@ -10,10 +15,10 @@ import Data.Shapely.Normal.Classes
 import Data.Shapely.Bool
 
 
--- TODO - type filters
---      - nub / uniq
---      - Unique class , or predicate class (clean up what we have used in Massageable) 
-
+-- TODO 
+--    - Unique (or TypeSet, or...?) class (i.e. for products this is a TIP), or
+--    predicate class (clean up TypeIndexPred in Massageable, keeping method
+--    hidden) 
 
 
 -- We borrow this type-equality comparison trick from Oleg: 
@@ -31,21 +36,56 @@ instance HasAny p (Only p) True
 instance (false ~ False)=> HasAny p (Only x) false
 
 
+-- TODO: generalize these to Coproducts with NormalConstr
+
+
+class NubType l l' | l -> l' where
+    -- | Remove all but the first occurrence of each type.
+    nubType :: l -> l'
+
+instance (() ~ l')=> NubType () l' where
+    nubType () = ()
+
+instance (DeleteAllType x xys ys, NubType ys ys', x_ys' ~ (x,ys'))=> NubType (x,xys) x_ys' where
+    nubType (x,xys) = (x, nubType (xys `deleteAllTypeOf` x))
+
+
+
+class DeleteAllType a l l' | a l -> l' where
+    -- | Drop any occurrences of type @a@ from the list @l@, leaving @l'@.
+    deleteAllTypeOf :: l -> a -> l'
+
+instance (u ~ ())=> DeleteAllType a () u where
+    deleteAllTypeOf = const
+    
+instance (DeleteAllType a l l')=> DeleteAllType a (a,l) l' where
+    deleteAllTypeOf = deleteAllTypeOf . snd
+
+instance (DeleteAllType a l l', (x,l') ~ x_l')=> DeleteAllType a (x,l) x_l' where
+    deleteAllTypeOf l a = fmap (`deleteAllTypeOf` a) l
+
+
 -- | Shift the /only/ occurrence of type @a@ to the 'Head' of @l@.
+-- 
+-- > viewType = viewFirstType
 viewType :: (HasAny a l' False, HavingType a l l')=> l -> (a,l')
 viewType = viewFirstType
 
--- | 'viewType' of the same type as its second argument.
---
--- > viewingTypeOf = const . viewType
--- viewingTypeOf :: l -> a -> (a,l')
--- viewingTypeOf = const . viewType
+viewTypeOf :: (HasAny a l' False, HavingType a l l')=> l -> a -> (a,l')
+viewTypeOf = const . viewType
+
 
 
 -- | The non-empty, 'Product' or 'Coproduct' @l@, out of which we can pull the
 -- unique type @a@, leaving @l'@.
-class HavingType a l l' where
+class HavingType a l l' | a l -> l' where
+    -- | Shift the first occurrence of type @a@ to the 'Head' of @l@.
     viewFirstType :: l -> (a,l')
+    -- | 'viewFirstType' of the same type as its second argument.
+    --
+    -- > viewFirstTypeOf = const . viewFirstType
+    viewFirstTypeOf :: l -> a -> (a,l')
+    viewFirstTypeOf = const . viewFirstType
 
 instance HavingType a (a,l) l where
     viewFirstType = id
