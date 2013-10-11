@@ -12,9 +12,9 @@ module Main
 import Data.Shapely
 import Data.Shapely.Normal as Sh
 
-s :: (Int,()) :+: (Char,()) :+: (Bool,())
---   Either (Int,()) (Either (Char,()) (Bool,()))
-s = Right (Right (True,()))
+s :: (Int,()) :+: (Char,()) :+: (Bool :*! String)
+--   Either (Int,()) (Either (Char,()) (Bool,(String,())))
+s = Right (Right (True,("true",())))
 
 p :: (Int,(Char,(Bool,())))
 p = 1 <| 'a' <! True
@@ -25,12 +25,12 @@ p = 1 <| 'a' <! True
 concated_p :: (Int,(Char,(Bool,(Int,(Char,(Bool,()))))))
 concated_p = Sh.concat (p, (p, ()))
 
-test_concated_s = ( Sh.concat $ (Right s  :: Either (Either (Int,()) (Either (Char,()) (Bool,())))  (Either (Int,()) (Either (Char,()) (Bool,()))) ) )
-                    == Right (Right (Right (Right (Right (True,())))))
+test_concated_s = ( Sh.concat $ (Right s  :: Either (Either (Int,()) (Either (Char,()) (Bool,())))  (Either (Int,()) (Either (Char,()) (Bool,(String,())))) ) )
+                    == Right (Right (Right (Right (Right (True,("true",()))))))
 
 
 -- REVERSABLE
-s_rev :: Either (Bool,()) (Either (Char,()) (Int,()))
+s_rev :: Either (Bool,(String,())) (Either (Char,()) (Int,()))
 s_rev = Sh.reverse s
 
 p_rev :: (Bool,(Char,(Int,())))
@@ -40,10 +40,10 @@ p_empty_rev :: ()
 p_empty_rev = Sh.reverse ()
 
 -- SHIFTING:
-sr :: Either (Bool,()) (Either (Int,()) (Char,()))
+sr :: Either (Bool,(String,())) (Either (Int,()) (Char,()))
 sr = shiftr s
 
-sl :: Either (Char,()) (Either (Bool,()) (Int,()))
+sl :: Either (Char,()) (Either (Bool,(String,())) (Int,()))
 sl = shiftl s
 
 pr :: (Bool,(Int,(Char,())))
@@ -52,8 +52,15 @@ pr = shiftr p
 pl :: (Char,(Bool,(Int,())))
 pl = shiftl p
 
--- UNCURRY
-test_uncurry = Sh.uncurry (\i c b-> if b then (i,c) else (9,'z')) p  ==  (1,'a')
+-- FANIN
+test_fanin_prod = Sh.fanin (\i c b-> if b then (i,c) else (9,'z')) p  ==  (1,'a')
+
+test_fanin_coprod = 
+        -- the coproduct arg must be unambiguous, but hopefully in practice a
+        -- type signature won't be necessary (when e.g. the sum is a
+        -- TH-generated instance):
+        let s' = Right $ Right (1,([2..5],())) :: Either (Int,()) ( Either () (Int,([Int],())) )
+         in fanin ((+1), (3, (foldr (+), ()))) s'  ==  15
 
 -- APPEND
 appended :: (Int,(Char,(Bool,(Int,(Char,(Bool,()))))))
@@ -63,8 +70,8 @@ appended_s
   :: Either
        (Char, ())
        (Either
-          (Int, ()) (Either (Int, ()) (Either (Char, ()) (Bool, ()))))
-appended_s = let s_ss = (Right s) :: Either ( Either (Char,()) (Int,()) )  ( Either (Int,()) (Either (Char,()) (Bool,())) )
+          (Int, ()) (Either (Int, ()) (Either (Char, ()) (Bool, (String,())))))
+appended_s = let s_ss = (Right s) :: Either ( Either (Char,()) (Int,()) )  ( Either (Int,()) (Either (Char,()) (Bool,(String,()))) )
               in append s_ss
                   --  == Right (Right (Right (Right (True,()))))
 
@@ -72,21 +79,15 @@ appended_s = let s_ss = (Right s) :: Either ( Either (Char,()) (Int,()) )  ( Eit
 test_toList = Sh.toList (1,(2,(3,()))) == [1,2,3]
 
 -- CARTESIAN-ESQUE
-test_fanout = fanout (head,(tail,(length,()))) [1..3] == (1,([2,3],(3,())))
+test_fanout_prod = fanout (head,(tail,(length,()))) [1..3] == (1,([2,3],(3,())))
 
-test_fanin = 
-        -- the coproduct arg must be unambiguous, but hopefully in practice a
-        -- type signature won't be necessary (when e.g. the sum is a
-        -- TH-generated instance):
-    let s' :: Either (Int,()) (Either () ([Int],([Int],())))
-        s' = Left (1,()) 
-     in fanin ((+1), (3, ((length .) . (++), ()))) s' == 2
+test_fanout_coprod = fanout (Right $ Left ((+1),(const 'a',())) :: Either (Int -> Bool,()) (Either (Int -> Int,(Int -> Char,())) ()) ) 1  ==  Right (Left (2,('a',())))
 
 -- test of inferrence convenience:
 test_replicate = (3  ==) $ (\(x,(y,(z,())))-> x+y+z) $ Sh.replicate 1
--- THIS DOESN'T WORK, HOWEVER. any way to restructure uncurry to make inferrence possible?
+-- THIS DOESN'T WORK, HOWEVER. any way to restructure fanin to make inferrence possible?
 -- replicate_test2 = (3 ==) $ Sh.uncurry (\x y z-> x+y+z) $ Sh.replicate 1
-test_replicate2 = (3 ==) $ Sh.uncurry (\x y z-> x+y+z) (Sh.replicate 1 :: (Int,(Int,(Int,()))))
+test_replicate2 = (3 ==) $ Sh.fanin (\x y z-> x+y+z) (Sh.replicate 1 :: (Int,(Int,(Int,()))))
 
 test_extract = let s' :: Either (Int,()) (Either (Int,()) (Int,()))
                    s' = Right (Right (1,()))
