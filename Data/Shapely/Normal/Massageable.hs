@@ -24,7 +24,7 @@ import Control.Arrow((***))
 -- coproduct we do that, otherwise recursing to the Right. In order to do that
 -- we have to turn the classes we would normally write into *predicates*, i.e.
 -- where no instance would exist above, we now need to define an instance that
--- unifies a boolean head type variable to 'No'; we then chain these using
+-- unifies a boolean head type variable to 'False'; we then chain these using
 -- boolean algebra in our constraints.
 --
 -- technique adapted from: 
@@ -32,11 +32,11 @@ import Control.Arrow((***))
 
 
 -- We avoid code duplication (and lots of programming errors) here & below by
--- combining the "functional" class with the predicate class. Yes instances
--- actually work, and No instances never make it past the typechecker.
+-- combining the "functional" class with the predicate class. True instances
+-- actually work, and False instances never make it past the typechecker.
 class TypeIndexPred a l l' b | a l -> l', a l l' -> b where
     viewType :: l -> (a,l')
-    viewType = error "viewType: Method called in No predicate instance"
+    viewType = error "viewType: Method called in False predicate instance"
 
 instance (HasAny a l lHasA, Not lHasA b)=> TypeIndexPred a (a,l) l b where
     viewType = id
@@ -47,12 +47,12 @@ instance (TypeIndexPred a l l' b, xl' ~ (x,l'))=> TypeIndexPred a (x,l) xl' b wh
 ------------ NON-INSTANCES: ------------
 -- This is ugly & hackish:
 data Void
-instance (No ~ no, Void ~ void)=> TypeIndexPred a () void no
-instance HasAny a Void No
+instance (False ~ false, Void ~ void)=> TypeIndexPred a () void false
+instance HasAny a Void False
 
 
 class IsAllUnique x b | x -> b
-instance (yes ~ Yes)=> IsAllUnique () yes
+instance (true ~ True)=> IsAllUnique () true
 instance (IsAllUnique xs tailUnique
          , HasAny x xs xInXs
          , Not xInXs xNotInXs
@@ -148,7 +148,7 @@ instance ( IsAllUnique () isTIPStyle  -- TODO THE BUG IS HERE
 instance ( Product xs, Product ys
          , IsAllUnique xs isTIPStyle
          -- Only "real" instances of ProductToProductPred will typecheck:
-         , ProductToProductPred isTIPStyle a b xs ys Yes
+         , ProductToProductPred isTIPStyle a b xs ys True
     )=> MassageableNormalRec a b xs ys where
     massageNormalRec ab = massageProdProd (undefined::isTIPStyle, ab)
 
@@ -163,13 +163,13 @@ class ProductToCoproduct isHeadMassageable pa pb s t where
     massageProdCoprod :: isHeadMassageable -> (pa,pb) -> s -> t
 
 instance ( IsAllUnique xss isTIPStyle
-         , ProductToProductPred isTIPStyle pa pb xss xs Yes
+         , ProductToProductPred isTIPStyle pa pb xss xs True
          -- insist unambiguous, else fail typechecking:
-         , AnyMassageable pa pb xss ys No
-         )=> ProductToCoproduct Yes pa pb xss (Either xs ys) where
+         , AnyMassageable pa pb xss ys False
+         )=> ProductToCoproduct True pa pb xss (Either xs ys) where
     massageProdCoprod _ ab = Left . massageProdProd (undefined :: isTIPStyle,ab)
 
-instance (MassageableNormalRec pa pb yss ys)=> ProductToCoproduct No pa pb yss (Either xs ys) where
+instance (MassageableNormalRec pa pb yss ys)=> ProductToCoproduct False pa pb yss (Either xs ys) where
     massageProdCoprod _ ab = Right . massageNormalRec ab
 
 -- helper predicate class:
@@ -187,51 +187,51 @@ instance ( IsAllUnique xss isTIPStyle
 ------------------------------------------------------------------------------
 -- MASSAGING PRODUCTS TO PRODUCTS
 
--- combination Predicate/functional class. "No" instances are defined where we
+-- combination Predicate/functional class. "False" instances are defined where we
 -- would normally have not defined an instance.
 class ProductToProductPred isTIPStyle pa pb s t b | isTIPStyle pa pb s t -> b where
     massageProdProd :: (isTIPStyle, (pa,pb)) -> s -> t
-    massageProdProd = error "massageProdProd: Method called in No predicate instance"
+    massageProdProd = error "massageProdProd: Method called in False predicate instance"
 
 ------------ INSTANCES: ------------
 
-instance ProductToProductPred either pa pb () () Yes where
+instance ProductToProductPred either pa pb () () True where
     massageProdProd _ = id
 
 
 ---- TIP-style, where all source product terms are unique ----
 
-instance ( ProductToProductPred Yes pa pb xxs' ys tailsTIPMassageable
+instance ( ProductToProductPred True pa pb xxs' ys tailsTIPMassageable
          , TypeIndexPred y (x,xs) xxs' xxsHasY
          , And tailsTIPMassageable xxsHasY b
-    )=> ProductToProductPred Yes pa pb (x,xs) (y,ys) b where
+    )=> ProductToProductPred True pa pb (x,xs) (y,ys) b where
     massageProdProd ps = fmap (massageProdProd ps) . viewType
 
 -- when the head of target is a recursive 'b' term, we try to pull an
 -- equivalent recursive 'a' term out of the source tuple, insisting that they also
 -- be massageable.
-instance ( ProductToProductPred Yes pa pb xxs' ys tailsTIPMassageable
+instance ( ProductToProductPred True pa pb xxs' ys tailsTIPMassageable
          , TypeIndexPred (AlsoNormal pa) (x,xs) xxs' xxsHasRecursiveA
          , And tailsTIPMassageable xxsHasRecursiveA b
          , MassageableNormalRec pa pb (Normal pa) (Normal pb)
-    )=> ProductToProductPred Yes pa pb (x,xs) (AlsoNormal pb, ys) b where
+    )=> ProductToProductPred True pa pb (x,xs) (AlsoNormal pb, ys) b where
     massageProdProd ps = (alsoMassage (snd ps) *** massageProdProd ps) . viewType -- TODO: or make a massageable instance for AlsoNormal?
 
 
 ---- order-preserving style: ----
 
-instance (ProductToProductPred No pa pb ys ys' b
-    )=> ProductToProductPred No pa pb (x,ys) (x,ys') b where
+instance (ProductToProductPred False pa pb ys ys' b
+    )=> ProductToProductPred False pa pb (x,ys) (x,ys') b where
     massageProdProd = fmap . massageProdProd
 
 -- when massaging ordered tuples we can simply match equivalent AlsoNormal
 -- terms on each fst position:
-instance ( ProductToProductPred No pa pb ys ys' b
+instance ( ProductToProductPred False pa pb ys ys' b
          , MassageableNormalRec pa pb (Normal pa) (Normal pb)
-    )=> ProductToProductPred No pa pb (AlsoNormal pa, ys) (AlsoNormal pb, ys') b where
+    )=> ProductToProductPred False pa pb (AlsoNormal pa, ys) (AlsoNormal pb, ys') b where
     massageProdProd ps = alsoMassage (snd ps) *** massageProdProd ps
 
 
 ------------ NON-INSTANCES: ------------
 
-instance (No ~ no)=> ProductToProductPred either pa pb s t no
+instance (False ~ false)=> ProductToProductPred either pa pb s t false
