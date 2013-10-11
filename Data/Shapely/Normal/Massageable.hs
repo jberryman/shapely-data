@@ -9,6 +9,8 @@ module Data.Shapely.Normal.Massageable
 
 import Data.Shapely.Classes
 import Data.Shapely.Normal.Classes
+import Data.Shapely.Normal.TypeIndexed hiding(viewType)
+import Data.Shapely.Bool
 import Data.Shapely.Category(swapFront)
 
 import Control.Arrow((***))
@@ -16,35 +18,6 @@ import Control.Arrow((***))
 -- An internal module mostly to keep use of OverlappingInstances isolated
 
 
--- We borrow this type-equality comparison trick from Oleg: 
---   http://okmij.org/ftp/Haskell/ConEQ.hs
-data Yes = Yes
-data No = No
-
-class And a b c | a b -> c
-instance And Yes b b
-instance And No  b No
-
-class Or a b c | a b -> c
-instance Or No  b b
-instance Or Yes b Yes
-
-class Not b b' | b -> b'
-instance Not Yes No
-instance Not No  Yes
-
-
-class HasAny a l b | a l -> b
-
-instance HasAny a (a,l) Yes
-instance (HasAny a l b)=> HasAny a (x,l) b
-instance HasAny a () No
-
--- for 'Coproduct's:
-instance HasAny p (Either p ps) Yes
-instance (HasAny a (Tail (Either x l)) b)=> HasAny a (Either x l) b
-instance HasAny p (Only p) Yes
-instance (b ~ No)=> HasAny p (Only x) b
 
 -- We need to be able to choose instances based on *whether* a type is a member
 -- of a class, e.g. if the source is massageable to the left of the target
