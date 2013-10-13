@@ -43,11 +43,11 @@ compatibility issues when this module is improved.
     , MassageableNormal(..)
     ) where
 
-import Data.Shapely
 import Data.Shapely.Category
 import Data.Shapely.Normal.Classes
 import Data.Shapely.Classes
 import Data.Shapely.Normal.Massageable
+import Data.Shapely.Normal.FannedApplication
 import Control.Applicative() -- Functor instances for (,) and Either
 
 import Prelude hiding (replicate,concat,reverse, map)
@@ -236,37 +236,6 @@ instance (Shiftable (Either y zs)
     shiftr = swapFront . fmap shiftr
 
 
--- | A class for applying a structure to a 'Product' or 'Coproduct' @t@,
--- yielding an @r@.
-class Fanin t r where
-    -- | A structure capable of consuming the terms @t@ and producing @r@.
-    type t :->-> r
-    fanin :: (t :->-> r) -> t -> r
-
--- | > fanin = const
-instance Fanin () r where
-    type () :->-> r = r
-    fanin = const
-
--- | n-ary @uncurry@ on 'Product's, for instance, e.g.
---
--- > fanin (+) (1,(2,())) == 3
-instance (Fanin bs r)=> Fanin (a,bs) r where
-    type (a,bs) :->-> r = a -> bs :->-> r
-    fanin f = uncurry (fanin . f)
-
--- | n-ary @fanin@ on 'Coproduct's
---
--- > let s = Right $ Right (1,([2..5],())) :: Either (Int,()) ( Either () (Int,([Int],())) )
--- >  in fanin ((+1), (3, (foldr (+), ()))) s  ==  15
-instance (Fanin (Tail (Either a bs)) r, EitherTail bs, Fanin a r)=> Fanin (Either a bs) r where
-    type Either a bs :->-> r = (a :->-> r, Tail (Either a bs) :->-> r)
-    fanin (f,fs) = eitherTail (fanin f) (fanin fs)
-
-instance (Fanin a r)=> Fanin (Only a) r where
-    type Only a :->-> r = (a :->-> r, ())
-    fanin (f,()) = fanin f . just
-
 
 -- | A @(++)@-like append operation on 'Product's and 'Coproduct's. See also
 -- ('.++.'). e.g.
@@ -354,34 +323,6 @@ instance (List a as)=> List a (a,as) where
     toList (a,as) = a : toList as
     replicate a = (a,replicate a)
 
-
-
--- | Apply a 'Product' or 'Coproduct' structure @fs@ to the term @s@ yielding a
--- product or coproduct @FannedOut fs@.
---
--- See also 'Fanin'.
-class Fanout s fs | fs -> s where
-    type FannedOut fs
-    fanout :: fs -> (s -> FannedOut fs)
-
-instance Fanout s () where
-    type FannedOut () = ()
-    fanout = const
-
--- ...and this is the result of @uncurry@ with arrows reversed.
--- | an n-ary @(&&&)@
-instance (Fanout s fs)=> Fanout s (s -> x,fs) where
-    type FannedOut (s -> x, fs) = (x, FannedOut fs) 
-    fanout (f,fs) s = (f s, fanout fs s)
-
--- @fs@ is what we need to get @r -> E a b@, which is the result of @fanin@
--- with the arrow reversed. I'm not sure what to call this.
--- | e.g. 
---
--- > fanout (Left ((+1),()) :: Either (Int -> Int,()) (Int -> Bool,())) 1  ==  Left (2,())
-instance (Fanout s fs, Fanout s fss)=> Fanout s (Either fs fss) where
-    type FannedOut (Either fs fss) = Either (FannedOut fs) (FannedOut fss)
-    fanout = either ((Left .) . fanout) ((Right .) . fanout) -- NOTE eitherTail/Only instance unnecessary
 
 
 -- | Extract the value from a homogeneous sum.

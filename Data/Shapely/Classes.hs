@@ -11,38 +11,14 @@ module Data.Shapely.Classes
 
 -- internal module to avoid circular dependencies
 
-
-
--- | A Product is a list of arbitrary terms constructed with @(,)@, and
--- terminated by @()@ in the @snd@. e.g.
---
--- > prod = (1,(2,(3,())))
-class (NormalConstr t ~ (,))=> Product t
-instance Product ()
-instance (Product ts)=> Product (a,ts)
-
--- | A coproduct is a non-empty list of 'Product's constructed with @Either@
--- and terminated by a 'Product' type on the @Right@. e.g.
---
--- > coprod = (Right $ Left (1,(2,(3,())))) :: Either (Bool,()) (Either (Int,(Int,(Int,()))) (Char,()))
---
--- To simplify type functions and class instances we also define the singleton
--- coproduct 'Only'.
-class (NormalConstr e ~ Either)=> Coproduct e 
-instance (Product t)=> Coproduct (Either t ())
-instance (Product t, Product (a,b))=> Coproduct (Either t (a,b))
-instance (Product t, Coproduct (Either b c))=> Coproduct (Either t (Either b c))
-
-type family NormalConstr t :: * -> * -> *
-type instance NormalConstr (a,b) = (,)
-type instance NormalConstr () = (,)
-type instance NormalConstr (Either a b) = Either
+import Data.Shapely.Normal.FannedApplication
+import Data.Shapely.Normal.Classes
 
 
 
 -- | Instances of the 'Shapely' class can be converted to and from a 'Normal'
 -- representation, made up of @(,)@, @()@ and @Either@.
-class Shapely a where
+class (Fanin (Normal a) a)=> Shapely a where
     -- | A @Shapely@ instances \"normal form\" representation, consisting of
     -- nested product, sum and unit types. Types with a single constructor will
     -- be given a 'Product' Normal representation, where types with more than
@@ -51,14 +27,16 @@ class Shapely a where
     -- See the documentation for 'mkShapely', and the instances defined here
     -- for details.
     type Normal a
-    to :: a -> Normal a
-    from :: Normal a -> a
 
--- | Note, the normal form for a tuple is not itself
-instance Shapely (x,y) where
-    type Normal (x,y) = (x,(y,()))
-    to (x,y) = (x,(y,()))
-    from (x,(y,())) = (x,y)
+    to :: a -> Normal a
+
+    from :: Normal a -> a
+    from na = let a = fanin (constructorsOf a) na in a
+    
+    -- NOTE: I originally wanted simply: `constructors :: Normal a :->-> a`
+    -- but inferrence seems broken there, even w/ scoped type variables.
+    constructorsOf :: a -> Normal a :->-> a
+
 
 -- Syntactically we can think of the type constructor (in this case (), but
 -- usually, e.g. "Foo") becoming (), and getting pushed to the bottom of the
@@ -66,17 +44,27 @@ instance Shapely (x,y) where
 instance Shapely () where  
     type Normal () = ()
     to = id
-    from = id
+  --from = id
+    constructorsOf _ = ()
+
+-- | Note, the normal form for a tuple is not itself
+instance Shapely (x,y) where
+    type Normal (x,y) = (x,(y,()))
+    to (x,y) = (x,(y,()))
+  --from (x,(y,())) = (x,y)
+    constructorsOf _ = (,)
 
 -- Here, again syntactically, both constructors Left and Right become `()`, and
 -- we replace `|` with `Either` creating a sum of products.
 instance Shapely (Either x y) where
     type Normal (Either x y) = Either (x,()) (y,())
     to = let f = flip (,) () in either (Left . f) (Right . f)
-    from = either (Left . fst) (Right . fst)
-  --from = Sh.fanin (Left,(Right,())).
+  --from = either (Left . fst) (Right . fst)
+    constructorsOf _ = (Left,(Right,()))
+    
+---- TODO: list instance by hand. Check their equivalents in tests of TH code by using a newtype wrapper. -----
 
----- TODO: more instances by hand. Check their equivalents in tests of TH code by using a newtype wrapper. -----
+
 
 -- | A wrapper for recursive child occurences of a 'Normal'-ized type
 newtype AlsoNormal a = Also { normal :: Normal a }
