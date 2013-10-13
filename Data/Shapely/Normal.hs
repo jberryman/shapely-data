@@ -337,31 +337,3 @@ instance (Product a)=> Extract a (Only a) where
 
 instance (EitherTail as, Extract a (Tail (Either a as)))=> Extract a (Either a as) where
     extract = eitherTail id extract
-
-
--- Helpers for recursion on coproducts:
-class EitherTail b where
-    eitherTail :: (a -> c) -> (Tail (Either a b) -> c) -> Either a b -> c
-
-instance EitherTail () where
-    eitherTail f g = either f g . fmap Only
-
-instance EitherTail (x,y) where
-    eitherTail f g = either f g . fmap Only
-
-instance EitherTail (Either x y) where
-    eitherTail = either
-
-{- NOTE initially tried this to avoid needing to define identical Coproduct
- - base cases for (a,b) and (), but it made instance constraint very noisey.
- - Not worth it.
--- map onto Tail of a Coproduct, yielding a Coproduct, and reconstructing. 
-class (Coproduct b')=> FmapTail b' where
-    fmapTail :: (EitherTail b)=> (Tail (Either a b) -> b') -> Either a b -> (a :< b')
-
-instance (Coproduct (Either x y))=> FmapTail (Either x y) where
-    fmapTail f = eitherTail Left (Right . f)
-
-instance (Product x)=> FmapTail (Only x) where
-    fmapTail f = eitherTail Left (Right . just . f)
-    -}
