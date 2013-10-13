@@ -1,9 +1,10 @@
-{-# LANGUAGE MultiParamTypeClasses , FlexibleInstances, FunctionalDependencies , FlexibleContexts 
+{-# LANGUAGE MultiParamTypeClasses , FlexibleInstances, FunctionalDependencies , FlexibleContexts , TypeFamilies
   , OverlappingInstances , UndecidableInstances #-}
 module Data.Shapely.Normal.TypeIndexed (
       HasAny(..)
     , viewType , viewTypeOf
     , HavingType(..)
+    -- ** On 'Product's
     , DeleteAllType(..)
     , NubType(..)
     ) where
@@ -13,7 +14,7 @@ module Data.Shapely.Normal.TypeIndexed (
 import Data.Shapely.Category
 import Data.Shapely.Normal.Classes
 import Data.Shapely.Bool
-
+import Data.Shapely.Classes
 
 -- TODO 
 --    - Unique (or TypeSet, or...?) class (i.e. for products this is a TIP), or
@@ -35,8 +36,6 @@ instance (HasAny a (Tail (Either x l)) b)=> HasAny a (Either x l) b
 instance HasAny p (Only p) True
 instance (false ~ False)=> HasAny p (Only x) false
 
-
--- TODO: generalize these to Coproducts with NormalConstr
 
 
 class NubType l l' | l -> l' where
@@ -68,10 +67,10 @@ instance (DeleteAllType a l l', (x,l') ~ x_l')=> DeleteAllType a (x,l) x_l' wher
 -- | Shift the /only/ occurrence of type @a@ to the 'Head' of @l@.
 -- 
 -- > viewType = viewFirstType
-viewType :: (HasAny a l' False, HavingType a l l')=> l -> (a,l')
+viewType :: (HasAny a (Tail (NormalConstr l a l')) False, HavingType a l l')=> l -> NormalConstr l a l'
 viewType = viewFirstType
 
-viewTypeOf :: (HasAny a l' False, HavingType a l l')=> l -> a -> (a,l')
+viewTypeOf :: (HasAny a (Tail (NormalConstr l a l')) False, HavingType a l l')=> l -> a -> NormalConstr l a l'
 viewTypeOf = const . viewType
 
 
@@ -80,15 +79,35 @@ viewTypeOf = const . viewType
 -- unique type @a@, leaving @l'@.
 class HavingType a l l' | a l -> l' where
     -- | Shift the first occurrence of type @a@ to the 'Head' of @l@.
-    viewFirstType :: l -> (a,l')
+    viewFirstType :: l -> NormalConstr l a l'
     -- | 'viewFirstType' of the same type as its second argument.
     --
     -- > viewFirstTypeOf = const . viewFirstType
-    viewFirstTypeOf :: l -> a -> (a,l')
+    viewFirstTypeOf :: l -> a -> NormalConstr l a l'
     viewFirstTypeOf = const . viewFirstType
 
-instance HavingType a (a,l) l where
+instance (Product l)=> HavingType a (a,l) l where
     viewFirstType = id
 
-instance (HavingType a l l', (x,l') ~ xl')=> HavingType a (x,l) xl' where
+instance (Product l, HavingType a l l', (x,l') ~ xl')=> HavingType a (x,l) xl' where
+    viewFirstType = swapFront . fmap viewFirstType
+
+
+-- match Left
+instance (Coproduct (Either () ps))=> HavingType () (Either () ps) ps where
+    viewFirstType = id
+instance (Coproduct (Either (x,y) ps))=> HavingType (x,y) (Either (x,y) ps) ps where
+    viewFirstType = id
+-- (ugly. needed to steal instance from the next section below):
+instance (Coproduct (Either () ()))=> HavingType () (Either () ()) () where
+    viewFirstType = id
+instance (Coproduct (Either (x,y) (x,y)))=> HavingType (x,y) (Either (x,y) (x,y)) (x,y) where
+    viewFirstType = id
+
+-- match Right Product
+instance (x' ~ x, Product p)=> HavingType p (Either x p) x' where
+    viewFirstType = swap
+
+-- recurse Right:
+instance (HavingType a y l', Either x l' ~ xl', Coproduct y)=> HavingType a (Either x y) xl' where
     viewFirstType = swapFront . fmap viewFirstType

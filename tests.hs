@@ -158,8 +158,22 @@ test_viewFirstTypeOf_prod =  (('a',(False,(True,("potato",())))) `viewFirstTypeO
 test_viewTypeOf_prod =  (('a',(False,(True,("potato",())))) `viewFirstTypeOf` "tuber") 
                         == ("potato",('a',(False,(True,()))))
 
+viewTypeOf_coprod1 :: Either (Int, ()) (Either (Char, ()) (Bool :*! String))
+viewTypeOf_coprod1 = s `viewTypeOf` ((1,()) :: (Int,()))
+
+viewTypeOf_coprod2 :: Either (Char, ()) (Either (Int, ()) (Bool :*! String))
+viewTypeOf_coprod2 = s `viewTypeOf` ('a',())
+
+viewTypeOf_coprod3 :: Either (Bool :*! String) (Either (Int, ()) (Char, ()))
+viewTypeOf_coprod3 = s `viewTypeOf` (True,("string",()))
+
+test_viewFirstTypeOf_coprod1 = (Left () :: Either () ()) `viewFirstTypeOf` ()  ==  Left ()
+test_viewFirstTypeOf_coprod2 = (Right $ Left () :: Either (Int,()) (Either () ())) `viewFirstTypeOf` ()  ==  Left ()
+
 {- MUST NOT TYPECHECK: 
      ('a',(False,(True,("potato",())))) `viewTypeOf` True
+     (Right $ Left () :: Either (Int,()) (Either () ())) `viewTypeOf` ()
+     (Left () :: Either () ()) `viewTypeOf` ()
 -}
 
 nub_prod :: (Int, (Char, (Bool, ())))
