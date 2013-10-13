@@ -11,9 +11,9 @@ module Data.Shapely.Normal (
 Functions for composing and modifying our 'Normal' form types.
 
 These take their names from the familiar functions in Data.List and Prelude,
-but are given more general forms after the constructions in Edward Kmett's
-"categories" package. There are probably many improvements and additions
-possible here.
+but are given more general forms, sometimes loosely after the constructions in
+Edward Kmett's "categories" package. There are probably many improvements and
+additions possible here.
 
 /NOTE/: The structure of the classes, type functions, and class constraints
 here are likely to change a lot, however the names of individual functions and
@@ -34,18 +34,10 @@ compatibility issues when this module is improved.
     , (:*:), (:*!), (:+:)
 
     -- * Operations on Products
-  --, Uncurry(..) DEAD
     , List(..)
+    , Extract(..)
     -- ** Composition & Construction Convenience Operators
     , (.++.), (|>), (<|), (<!)
-
-    -- * Cartesian and CoCartesian-like
-    -- ** Cartesian
-  --, Replicated(..) -- MOVED / DEAD
-  --, Fanout(..)  --MOVED
-    -- ** CoCartesian
-    , Extract(..)
-  --, Fanin(..) --MOVED
 
     -- * Product and Coproduct Conversions
     , MassageableNormal(..)
@@ -63,17 +55,13 @@ import qualified Prelude
 
 
 -- TODO?
---      - add the TIP-style function, re-order exports grouping 'extract'-style functions
---      - replace pattern matching on Only with `just`
---      - fix docs
---
 --      - implement TH stuff, derive instances for all built-in types
 --      - implement thorough tests for 'massage', and TH-derived stuff.
 --          - especially recursion, which we haven't tested well
 --      - take last look at easy construction of normal-form types
 --      - create some examples that re-create GHC generics motivation
---      - use some scheme to close type classes
---         - figure out exports
+--      - use some scheme to close type classes?
+--         - finalize exports, modules
 --
 --   v0.2:
 --      - freeze 'massage' behavior
@@ -124,7 +112,7 @@ import qualified Prelude
 
 infixr 5 :+:
 infixr 6 :*:
-infixr 6 :*!  -- TODO better fixity?
+infixr 6 :*!
 type (:+:) = Either
 type (:*:) = (,)
 type (x :*! y) = (x,(y,()))
@@ -208,7 +196,7 @@ instance ( xs ~ Either y zs  -- for readability
     reverse = shiftl . fmap reverse 
 
 
--- TODO: make instance for (), making ShiftedL/R assoc types
+-- TODO: make instance for (), making ShiftedL/R assoc types?
 -- | a class for shifting a sum or product left or right by one element, i.e. a
 -- logical shift
 class Shiftable t where
@@ -238,12 +226,11 @@ instance Shiftable (Either a (x,y)) where
 
 instance (Shiftable (Either y zs)
         , Shiftable (Either x zs)
+        , xs ~ (Either y zs) -- for readability
         -- TODO simplify these
-        , Tail (Either x zs) ~ Tail (Either y zs)
-        , (Last (Either y zs) :< (x :< Init (Either y zs))) 
-          ~ Either a0 (Either x c0)
-        , (Last (Either y zs) :< Init (Either y zs))
-          ~ Either a0 c0
+        , Tail (Either x zs) ~ Tail xs
+        , (Last xs :< (x :< Init xs)) ~ Either a0 (Either x c0)
+        , (Last xs :< Init xs)        ~ Either a0 c0
         )=> Shiftable (Either x (Either y zs)) where
     shiftl = fmap shiftl . swapFront
     shiftr = swapFront . fmap shiftr
@@ -322,7 +309,7 @@ infixr 5 .++.
 
 infixl 5 |>
 infixr 5 <| 
-infixr 5 <! -- TODO: fixity?
+infixr 5 <!
 -- | A convenience operator for appending an element to a product type.
 -- 'Shiftable' generalizes this operation.
 --
