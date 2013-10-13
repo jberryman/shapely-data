@@ -7,7 +7,12 @@ import Data.Shapely.Classes
 -- Internal module, mostly to avoid circular imports.
 
 
-
+-- TODO
+--   What if we make a class that bundles all the relations we can say between
+--   these type funcs, e.g.
+--       Head t :< Tail t ~ t
+--   And we could make Coproduct/Product sub-classes. Would that make fmapTail
+--   more viable?
 
 
 -- TODO: consider making all Left parameters and results of sums explicitly () and (a,b)

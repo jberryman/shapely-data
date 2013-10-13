@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}  -- for nested Type families. We intend these to be closed anyway, so no biggie
 {-# LANGUAGE FunctionalDependencies #-}
+-- NO OVERLAPPING INSTANCES HERE, PLEASE
 module Data.Shapely.Normal (
 {- |
 Functions for composing and modifying our 'Normal' form types.
@@ -62,7 +63,6 @@ import qualified Prelude
 
 
 -- TODO?
---      - fix bugs using fmapTail, improve working using fmapTail, and fix/add tests
 --      - add the TIP-style function, re-order exports grouping 'extract'-style functions
 --      - replace pattern matching on Only with `just`
 --      - fix docs
@@ -116,22 +116,9 @@ import qualified Prelude
 --     -lens
 --     -vinyl
 --     -Arrow
+--     - "lifted" programming with -XDataKinds
 -- -------
 
-
-{-
--- TODO rename to TypeIndex, replace (,) with NormalConstr,
---      and make instances for Coproduct (l -> Either a l').
--- | The non-empty, type-indexed product @l@, out of which we can pull the unique type @a@, leaving @l'@
-class TIP a l l' | a l -> l' where
-    viewType :: l -> (a,l')
-
-instance (HasAny a l No)=> TIP a (a,l) l where
-    viewType = id
-
-instance (TIP a l l', (x,l') ~ xl')=> TIP a (x,l) xl' where
-    viewType = swapFront . fmap viewType
--}
 
 
 
@@ -251,8 +238,8 @@ instance Shiftable (Either a (x,y)) where
 
 instance (Shiftable (Either y zs)
         , Shiftable (Either x zs)
-        , (Tail (Either x zs) :> x)
-          ~ (Tail (Either y zs) :> x)
+        -- TODO simplify these
+        , Tail (Either x zs) ~ Tail (Either y zs)
         , (Last (Either y zs) :< (x :< Init (Either y zs))) 
           ~ Either a0 (Either x c0)
         , (Last (Either y zs) :< Init (Either y zs))
@@ -332,12 +319,10 @@ infixr 5 .++.
 -- > (.++.) = curry append
 (.++.) :: (Product xs, Product ys, Appendable xs ys)=> xs -> ys -> xs :++: ys
 (.++.) = curry append
---TODO: - our classes don't require the first constraint above
---      - how can we combine multiple clasues?
 
 infixl 5 |>
 infixr 5 <| 
-infixr 5 <!
+infixr 5 <! -- TODO: fixity?
 -- | A convenience operator for appending an element to a product type.
 -- 'Shiftable' generalizes this operation.
 --
@@ -389,7 +374,7 @@ instance (List a as)=> List a (a,as) where
 --
 -- See also 'Fanin'.
 class Fanout s fs | fs -> s where
-    type FannedOut fs  -- TODO better name here/ Like 'Result'?
+    type FannedOut fs
     fanout :: fs -> (s -> FannedOut fs)
 
 instance Fanout s () where
