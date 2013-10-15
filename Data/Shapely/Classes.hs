@@ -33,11 +33,24 @@ class (Fanin (Normal a) a)=> Shapely a where
     from :: Normal a -> a
     from na = let a = fanin (constructorsOf a) na in a
     
+    -- | Return a structure capable of recreating a type @a@ from its 'Normal'
+    -- representation (via 'fanin').
+    --
+    -- This structure is simply the data constructor (or a 'Product' of
+    -- constructors for 'Coproduct's), e.g. for @Either@:
+    --
+    -- > constructorsOf _ = (Left,(Right,()))
+    --
+    -- ...possibly wrapped in a function to unwrap and apply 'from' to any
+    -- recursive 'AlsoNormal' sub-terms.
+    constructorsOf :: a -> Normal a :->-> a
     -- NOTE: I originally wanted simply: `constructors :: Normal a :->-> a`
     -- but inferrence seems broken there, even w/ scoped type variables.
-    constructorsOf :: a -> Normal a :->-> a
 
 
+-- Here I walk-through the ways we define 'Shapely' instances; you can also see
+-- the documentation for mkShapely for a description.
+--
 -- Syntactically we can think of the type constructor (in this case (), but
 -- usually, e.g. "Foo") becoming (), and getting pushed to the bottom of the
 -- stack of its terms (in this case there aren't any).
@@ -47,6 +60,8 @@ instance Shapely () where
   --from = id
     constructorsOf _ = ()
 
+-- And data constructor arguments appear on the 'fst' positions of nested
+-- tuples, finally terminated by a () in the 'snd' place.
 -- | Note, the normal form for a tuple is not itself
 instance Shapely (x,y) where
     type Normal (x,y) = (x,(y,()))
@@ -61,9 +76,20 @@ instance Shapely (Either x y) where
     to = let f = flip (,) () in either (Left . f) (Right . f)
   --from = either (Left . fst) (Right . fst)
     constructorsOf _ = (Left,(Right,()))
-    
----- TODO: list instance by hand. Check their equivalents in tests of TH code by using a newtype wrapper. -----
+  
+-- Where we have recursive structure, the Normal representation converts to
+-- Normal form the recursive sub-terms and wraps them in AlsoNormal.
+-- 'constructorsOf' does the inverse for those terms, before applying the
+-- actual data constructor.
+instance Shapely [a] where 
+    -- NOTE: data [] a = [] | a : [a]    -- Defined in `GHC.Types'
+    type Normal [a] = Either () (a,(AlsoNormal [a],()))
+    to []         = Left ()
+    to ((:) a as) = Right (a, (Also $ to as, ()))
+    constructorsOf _ = ([],(\a as-> (:) a (from $ normal as),()))
 
+---- TODO: Check the equivalents of above in tests of TH code by using a newtype wrapper. -----
+---- TODO  derive other instances of Prelude / etc. types here
 
 
 -- | A wrapper for recursive child occurences of a 'Normal'-ized type
