@@ -29,7 +29,7 @@ compatibility issues when this module is improved.
     , Appendable(..)
     , Concatable(..)
     -- ** Fanned Application
-    , Fanin(..), Fanout(..)
+    , Fanin(..)
     -- ** Convenience Type synonyms
     , (:*:), (:*!), (:+:)
 
@@ -335,5 +335,5 @@ class Product a=> Extract a as | as -> a where
 instance (Product a)=> Extract a (Only a) where
     extract = just
 
-instance (EitherTail as, Extract a (Tail (Either a as)))=> Extract a (Either a as) where
+instance (EitherTail as, Extract a (AsTail as))=> Extract a (Either a as) where
     extract = eitherTail id extract

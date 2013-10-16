@@ -13,6 +13,14 @@ import Data.Shapely
 import Data.Shapely.Normal as Sh
 import Data.Shapely.Normal.TypeIndexed
 
+--  TODO QUESTIONS:
+    -- How does this work with polymorphic terms?
+    -- And what about in Massageable, can we do massage (:: Foo a b) :: Bar b a   ??
+    -- What about the fact that users can instantiate a polymorphic term as AlsoNormal, what happens there?
+    -- can we use the "extra method trick"?
+    -- what about types like data `Fix f = f (Fix f)`
+
+
 s :: (Int,()) :+: (Char,()) :+: (Bool :*! String)
 --   Either (Int,()) (Either (Char,()) (Bool,(String,())))
 s = Right (Right (True,("true",())))
@@ -82,7 +90,7 @@ test_toList = Sh.toList (1,(2,(3,()))) == [1,2,3]
 -- CARTESIAN-ESQUE
 test_fanout_prod = fanout (head,(tail,(length,()))) [1..3] == (1,([2,3],(3,())))
 
-test_fanout_coprod = fanout (Right $ Left ((+1),(const 'a',())) :: Either (Int -> Bool,()) (Either (Int -> Int,(Int -> Char,())) ()) ) 1  ==  Right (Left (2,('a',())))
+test_fanout_coprod = fanout (Right $ Left ((+1),(const 'a',())) ) 1  ==  (Right (Left (2,('a',()))) :: Either (Bool,()) (Either (Int,(Char,()))  ()))
 
 -- test of inferrence convenience:
 test_replicate = (3  ==) $ (\(x,(y,(z,())))-> x+y+z) $ Sh.replicate 1
@@ -139,12 +147,18 @@ test_extract = let s' :: Either (Int,()) (Either (Int,()) (Int,()))
     data Tsil a = Snoc (Tsil a) a
               | Lin
               deriving Show
+
     instance Shapely (Tsil a) where
         type Normal (Tsil a) = Either (AlsoNormal (Tsil a), (a, ())) ()
         to (Snoc l n) = Left (Also . to $ l , (n ,()))
         to Lin = Right ()
         from (Right ()) = Lin
         from (Left (an,(n,()))) = Snoc (from . normal $ an) n
+        
+        constructorsOf _ = (\an n-> Snoc (from . normal $ an) n, (Lin,()))
+      --constructorsOf _ = (Snoc,(Lin,()))  -- recursive!
+        or :
+        from = fanin constructors . nonrecursive
 
     massageRec "123"  :: Tsil Char
 
