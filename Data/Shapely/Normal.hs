@@ -29,7 +29,7 @@ compatibility issues when this module is improved.
     , Appendable(..)
     , Concatable(..)
     -- ** Fanned Application
-    , Fanin(..), Fanout(..)
+    , Fans(..)
     -- ** Convenience Type synonyms
     , (:*:), (:*!), (:+:)
 
@@ -70,10 +70,7 @@ import qualified Prelude
 --
 -- OTHER FUNCTIONS:
 --   
---   - factor
---      e.g. Either (a,bs) (a,cs) --> (a, Either bs cs) ... except several more type funcs required for this
---        type families we'd probably need here would be easier with a higher-order Mapped type family, but that's not allowed. Maybe the answer to that is here: http://typesandkinds.wordpress.com/2013/04/01/defunctionalization-for-the-win/
---   - distribute
+--   - factor & distribute, (+ type-indexed variants)
 --
 --   taking a numeric arg (implement with sum/product "templates"/peano numbers)
 --     - length type func. (with type nats?)
@@ -299,6 +296,10 @@ xs |> x = shiftl (x,xs)
 (<!) :: x -> y -> (x,(y,()))
 x <! y = (x,(y,()))
 
+{- TODO maybe
+mkProd = unfanin id
+-}
+
 
 -- | A class for homogeneous products with terms all of type @a@.
 class (Product as)=> List a as | as -> a where
@@ -335,5 +336,5 @@ class Product a=> Extract a as | as -> a where
 instance (Product a)=> Extract a (Only a) where
     extract = just
 
-instance (EitherTail as, Extract a (Tail (Either a as)))=> Extract a (Either a as) where
+instance (EitherTail as, Extract a (AsTail as))=> Extract a (Either a as) where
     extract = eitherTail id extract

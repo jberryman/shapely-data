@@ -18,7 +18,7 @@ import Data.Shapely.Normal.Classes
 
 -- | Instances of the 'Shapely' class can be converted to and from a 'Normal'
 -- representation, made up of @(,)@, @()@ and @Either@.
-class (Fanin (Normal a) a)=> Shapely a where
+class (Fans (Normal a) a)=> Shapely a where
     -- | A @Shapely@ instances \"normal form\" representation, consisting of
     -- nested product, sum and unit types. Types with a single constructor will
     -- be given a 'Product' Normal representation, where types with more than
@@ -43,8 +43,8 @@ class (Fanin (Normal a) a)=> Shapely a where
     --
     -- ...possibly wrapped in a function to unwrap and apply 'from' to any
     -- recursive 'AlsoNormal' sub-terms.
-    constructorsOf :: a -> Normal a :->-> a
-    -- NOTE: I originally wanted simply: `constructors :: Normal a :->-> a`
+    constructorsOf :: a -> Normal a :=>-> a
+    -- NOTE: I originally wanted simply: `constructors :: Normal a :=>-> a`
     -- but inferrence seems broken there, even w/ scoped type variables.
 
 
