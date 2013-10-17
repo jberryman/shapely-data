@@ -63,6 +63,7 @@ pl = shiftl p
 
 -- FANIN
 test_fanin_prod = Sh.fanin (\i c b-> if b then (i,c) else (9,'z')) p  ==  (1,'a')
+test_unfanin_prod = Sh.fanin (Sh.unfanin(\(i,(c,(b,())))-> if b then (i,c) else (9,'z'))) p  ==  (1,'a')
 
 test_fanin_coprod = 
         -- the coproduct arg must be unambiguous, but hopefully in practice a
@@ -70,6 +71,13 @@ test_fanin_coprod =
         -- TH-generated instance):
         let s' = Right $ Right (1,([2..5],())) :: Either (Int,()) ( Either () (Int,([Int],())) )
          in fanin ((+1), (3, (foldr (+), ()))) s'  ==  15
+
+test_unfanin_coprod = 
+    let f (Left (_,())) = "a"
+        f (Right (Left (_,()))) = "b"
+        f (Right (Right (_,(s,())))) = s
+     in fanin (unfanin f) s  == "true"
+
 
 -- APPEND
 appended :: (Int,(Char,(Bool,(Int,(Char,(Bool,()))))))
