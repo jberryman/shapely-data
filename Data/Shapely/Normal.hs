@@ -30,6 +30,7 @@ compatibility issues when this module is improved.
     , Concatable(..)
     -- ** Fanned Application
     , Fans(..)
+    , constructorsOfNormal
     -- ** Convenience Type synonyms
     , (:*:), (:*!), (:+:)
 
@@ -296,9 +297,13 @@ xs |> x = shiftl (x,xs)
 (<!) :: x -> y -> (x,(y,()))
 x <! y = (x,(y,()))
 
-{- TODO maybe
-mkProd = unfanin id
--}
+-- | > constructorsOfNormal = 'unfanin' id
+--
+-- Ex.
+--
+-- > constructorsOfNormal ('a',('b',())) 'x' 'y'  ==  ('x',('y',()))
+constructorsOfNormal :: (Fans r r)=> r -> (r :=>-> r)
+constructorsOfNormal r = unfanin (id . (`asTypeOf` r))
 
 
 -- | A class for homogeneous products with terms all of type @a@.

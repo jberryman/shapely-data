@@ -30,6 +30,8 @@ p = 1 <| 'a' <! True
 --  (1,('a',(True,())))
 
 
+test_constructorsOfNormal_prod = constructorsOfNormal ('a',('b',())) 'x' 'y'  ==  ('x',('y',()))
+
 -- CONCATABLE
 concated_p :: (Int,(Char,(Bool,(Int,(Char,(Bool,()))))))
 concated_p = Sh.concat (p, (p, ()))

@@ -17,6 +17,7 @@ import Data.Shapely.Bool
 import Data.Shapely.Classes
 
 -- TODO 
+--    - type indexed 'factor' (and even 'distribute')
 --    - Unique (or TypeSet, or...?) class (i.e. for products this is a TIP), or
 --    predicate class (clean up TypeIndexPred in Massageable, keeping method
 --    hidden) 
