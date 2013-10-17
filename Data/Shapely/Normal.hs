@@ -29,7 +29,7 @@ compatibility issues when this module is improved.
     , Appendable(..)
     , Concatable(..)
     -- ** Fanned Application
-    , Fanin(..)
+    , Fans(..)
     -- ** Convenience Type synonyms
     , (:*:), (:*!), (:+:)
 
