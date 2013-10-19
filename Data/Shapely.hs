@@ -11,11 +11,14 @@ module Data.Shapely (
 {- | 
 /Issues and Limitations:/
 .
-  - Users can't express recursive structure of types without depending on this
-    for 'AlsoNormal'
+  - Users can't express recursive structure of types in their own code without
+    depending on this package for 'AlsoNormal'
 .
   - 'massage' does not support mutually-recursive types and other more
-    complicated recursion schemes.
+    complicated recursion schemes (yet)
+
+  - we don't know how to create normal form structure for fancy things like: 
+    @data T f a = T (f (T f a))@
 
  -}
       Product(..), Coproduct(..)

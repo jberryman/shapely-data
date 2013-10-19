@@ -43,9 +43,11 @@ class (Fans (Normal a) a)=> Shapely a where
     --
     -- ...possibly wrapped in a function to unwrap and apply 'from' to any
     -- recursive 'AlsoNormal' sub-terms.
+    --
+    -- Satisfies:
+    --
+    -- > fanin (constructorsOf a) (to a) == a
     constructorsOf :: a -> Normal a :=>-> a
-    -- NOTE: I originally wanted simply: `constructors :: Normal a :=>-> a`
-    -- but inferrence seems broken there, even w/ scoped type variables.
 
 
 -- Here I walk-through the ways we define 'Shapely' instances; you can also see
