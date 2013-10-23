@@ -1,241 +1,196 @@
 {-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, TemplateHaskell #-}
 module Data.Shapely.TH (
-{- |
-   This is an experimantal module for converting aribtrary algebraic data types
-   into combinations of haskell's primitive product (@(,)@), sum (@Either@),
-   and unit (@()@) types. The idea is to move the /structure/ of a data type
-   into the type system. 
-   .
-   The templeate haskell function 'mkName' can be used in a splice to generate
-   'Shapely' class instances for a list of types. Here is an example of a
-   Shapely instance generated for @Maybe@, illustrating naming conventions
-   in generated code:
--}
-
--- TODO:
--- Read paper, consider their notion of isomorphic types
--- Use associated type synonym for "canonical" form
-
--- | 
--- > {-# LANGUAGE TemplateHaskell #-}
--- > -- This code:
--- > $(mkShapely [''Maybe])
--- > -- generates code equivalent to:
--- > {-
--- >  newtype ShapelyMaybe a = ShapelyMaybe {shapelyMaybe :: Either () a}
--- >  instance Shapely (Maybe a) (ShapelyMaybe a) where
--- >        toShapely a = ShapelyMaybe (toShapely' a)
--- >          where
--- >              toShapely' Nothing = Left GHC.Unit.()
--- >              toShapely' (Just s1) = Right s1
--- >        fromShapely a = fromShapely' (shapelyMaybe a)
--- >          where
--- >              fromShapely' (Left sumVar) = Nothing
--- >              fromShapely' (Right sumVar)
--- >                = \constr a-> constr a Just sumVar 
--- > -}
-
-{- | 
-   Note that the resulting "structural form" might be ambiguous, for instance
-   both the types @data Foo = Foo Int | Empty@ and @data Bar = Bar Int |
-   HoldsUnit ()@ will convert to @Either Int ()@. This poses no problem for
-   conversions however.
-   .
-   This is mostly proof-of-concept, but some potentially-useful applications
-   for this and future versions:
-   .
-   - generic view functions and lenses 
-   - conversions between similarly-structured data, or "canonical representation"
-   - incremental @Category@-level modification of data structure, e.g. with @Arrow@
-   - serializing data types
-   .
-   /Caveats:/ In this version only basic (non-record) types are supported,
-   recursive type arguments are not converted, etc. Let me know if you would
-   find this module useful with additional functionality or more robust handling
-   of input types.
--}
-    mkShapely
-  , Shapely(..)
+    deriveShapely
   ) where
+
+import Data.Shapely.Classes
+import Data.Shapely.Normal as Sh
 
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax
-
--- | A class for types to be converted into a sort of "normal form" by
--- converting its constructors into a combination of @Either@, @(,)@
--- and @()@, and back again.
-class Shapely a b | a -> b, b -> a where
-    toShapely   :: a -> b
-    fromShapely :: b -> a
+import Data.List
+import Control.Monad
 
 
-{-
- - NOTE:
+-- TODO:
+--   - newtype wrappers
+--   - recursion
+--   - GADT's? forall?
 
-       TODO:
-       - release 0.0
-
-       - generate pairs of convenience functions:
-           toShapelyFoo = shapelyFoo . toShapely
-           fromShapelyFoo = fromShapely . ShapelyFoo
-       - support record types, type operators e.g. [], strict/non-strict, derived classes, prettify variable names, etc. etc.
-       - handle empty bottom types in some way
-       - some clever way to handle recursive types so that we can convert [a] to (List a)
-            - make fromShapely take a constructor as an argument?
-            - replace recursive args with `Recursive (Foo a)`?
-       - types with equivalent shape, except for constructor ordering should be convertible back and forth
-            - perhaps some kind of canonical ordering of constructors
-       - add infix :+ :* type operators?
-       - if this becomes more useful, the Shapely class should live in it's own module
-       - re-write rules from/to = id, etc.
- -}
+-- TODO: what about application and recursion, as in
+--         data Free f a = Pure a | Free (f (Free f a))
+--       ? No way to write a `to` for this type without relying on Functor f
 
 
--- | Generate a 'Shapely' instance and newtype wrapper for the referenced
--- types (see above for naming conventions). Usage:
+-- | Generate a 'Shapely' instance for the type or set of mutually-recursive
+-- types (see below) passed as argument @nms@. This will create @length nms@
+-- new instances. Used like:
 --
--- > $(mkShapely [''Foo])  -- single-quotes reference a TH "Name"
+-- > $(deriveShapely [''RedTree, ''BlackTree])  -- two single-quotes reference a TH "Name"
 --
--- This requires the @TemplateHaskell@ extension to be enabled.
-mkShapely :: [Name] -> Q [Dec]
-mkShapely = fmap concat . mapM mkShapely' where
-    mkShapely' n = do
-       (TyConI d) <- reify n  -- what about PrimTyconI? should we represent literals as newtype-wrapped literals?
-       let (DataD ctxt nm bndings cnstrctrs derivng) = d
-
-       -- --------------------------------------------------------
-       -- create the newtype wrapper for "shapely" version
-       let wrapperNm = mkName ("Shapely" ++ nameBase nm)  -- e.g. "ShapelyFoo"
-       shapelyed <- shapelyProds  cnstrctrs
-       --shapelyed <- shapelyProds (nm,wrapperNm) cnstrctrs
-       let unwrapperName = mkName ("shapely" ++ nameBase nm)
-           wrapper = NewtypeD ctxt wrapperNm bndings (RecC wrapperNm [(unwrapperName,NotStrict,shapelyed)]) [] 
-
-       -- --------------------------------------------------------
-       -- build the Shapely class instance for this type
-       frmClauses <- fromShapelyClauses cnstrctrs
-       let fromShapelyDec = FunD 'fromShapely $ 
-             [Clause [VarP $ mkName "a"] (NormalB (AppE (VarE $ mkName "fromShapely'") (AppE (VarE unwrapperName) (VarE $ mkName "a")))) 
-                [FunD (mkName "fromShapely'") frmClauses] ]
-
-       let toShapelyDec = FunD 'toShapely $ 
-             [Clause [VarP $ mkName "a"] (NormalB ((ConE wrapperNm) `AppE` ((VarE $ mkName "toShapely'") `AppE` (VarE $ mkName "a")))) 
-                [FunD (mkName "toShapely'") (toShapelyClauses cnstrctrs)] ]
-
-       let shapelyInstance = InstanceD [] shapelyTs [toShapelyDec, fromShapelyDec]
-           shapelyTs = (ConT ''Shapely) `AppT` (decToType d) `AppT` (decToType wrapper)
-       return [wrapper,shapelyInstance]
-
--- this is no fun... :-(
-decToType :: Dec -> Type
-decToType (DataD _ nm bndings _ _)    = d2t nm bndings
-decToType (NewtypeD _ nm bndings _ _) = d2t nm bndings
-decToType _ = error "TODO, sorry"
-
-d2t :: Name -> [TyVarBndr] -> Type
-d2t nm = foldl AppT (ConT nm) . map (VarT . bndNames)
-    where bndNames (PlainTV n) = n
-          bndNames (KindedTV n _) = n
-
-
-
--- -------------------------
--- DATA CONVERSION HELPERS:
-
----- FROMSHAPELY METHOD: ----
--- takes list of constructors to CONVERT TO, pattern matching against Either, (), (,)
-fromShapelyClauses :: [Con] -> Q [Clause]
-fromShapelyClauses cs = do 
-    bdies <- mapM fromShapelyBdy cs
-    let pats = fromShapelyPats cs
-    return $ zipWith (\p bdy-> Clause [p] bdy []) pats bdies
-
--- for each constructor, return the pattern to match 
-fromShapelyPats :: [Con] -> [Pat]
-fromShapelyPats [_] = [sumPat]
-fromShapelyPats (_:cs) = ConP 'Left [sumPat] : (map (\p-> ConP 'Right [p]) $ fromShapelyPats cs)
-fromShapelyPats [] = error "type has no constructors"
-
-sumPat :: Pat
-sumPat = VarP $ mkName "sumVar"
-sumExp :: Exp
-sumExp = VarE $ mkName "sumVar"
-
--- given pattern match above, return a body that de-tuples args into Con
-fromShapelyBdy :: Con -> Q Body
-fromShapelyBdy (NormalC nm sts) = fmap NormalB $ deTuple $ length sts
-    where deTuple :: Int -> Q Exp -- function applying n-kind constructor to n-nested tuples
-          deTuple 0 = return (ConE nm) -- empty constructor (e.g. Nothing) 
-          -- IF WE DECIDE TO, RECURSIVE TYPE CONVERSION HAPPENS HERE:
-          deTuple n = [| $(deTupleN n) $(return $ ConE nm) $(return sumExp) |] -- 'sumVar' is our bound tuple above
-          deTupleN 1 = [| \constr a-> constr a |]
-          deTupleN n = [| \constr (a,b)-> $(deTupleN (n-1)) (constr a) b |]
-fromShapelyBdy _ = error "TODO, sorry"
+-- The algorithm used here to generate the 'Normal' instance is most easily
+-- described syntactically:
+--
+--   - Constructors are replaced with @()@, which terminate (rather than start)
+--      a product
+--
+--   - Product terms are composed with nested tuples, e.g. @Foo a b c ==> (a,(b,(c,())))@
+--
+--   - The @|@ in multiconstructor ('Coproduct') type declarations is replaced
+--      with @Either@
+--
+--   - In the instance declaration for each of the types in @nms@, all product
+--     terms present in @nms@ will be wrapped in an 'AlsoNormal' newtype,
+--     giving the normal form its recursive structure. e.g. 
+--
+--       > data List a = Cons a              (List a)      | Empty 
+--       >    ==> Either (    a, (AlsoNormal (List a),()))   () 
+--
+--   - newtypes wrappers are not treated as structural, allowing multiple
+--      instances, e.g. with different recursive structures.
+--
+-- Note that a 'Product' type in the @Right@ place terminates a composed
+-- 'Coproduct', while a @()@ in the @snd@ place terminates the composed terms
+-- of a @Product@.
+deriveShapely :: [Name] -> Q [Dec]
+deriveShapely [] = return []
+deriveShapely nms =
+    let lnms = length nms
+        nnms = take lnms $ map (take lnms) $ tails $ cycle nms
+     in forM nnms $ \recChildNms@(n:_) -> do
+          i <- reify n 
+          case i of -- :: (type family instance, toSHapely lambda, fromShapely lambda?
+               (TyConI d) -> return $
+                 case d of
+                      (DataD _ nm bndings cnstrctrs _) -> drvShapely recChildNms Nothing d
+                      (NewtypeD _ nm bindings cnstrctr _) -> error "TODO handle newtype wrappers"
+                                  {-
+                                                              -- GOAL: get from this mess the Dec for the type wrapped, get a name and do 'reify'?
+                                                              -- remember: tupleDataName :: Int -> Name
+                        -- consider:
+                        --   newtype Y = Y X
+                        --   newtype X = X Y
+                            case cnstrctr of
+                                 NormalC c_nm [(_,t)]
+                                 RecC c_nm [(_,_,t)]
+                                 _ -> error "Infix or forall or somehow multiple args to newtype constructor"
+                                 -}
+                      _ -> error "This is either impossible, or a user error"
+               (PrimTyConI _ _ _) -> error "We can't generate instances for primitive type constructors. Note that 'newtype' wrapped primitive types are also not allowed, as we don't consider newtypes structural"
+               _ -> error "Please pass the name of a type constructor"
 
 
----- TOSHAPELY METHOD: ----
--- takes a list of constructors to CONVERT FROM (pattern match against)
-toShapelyClauses :: [Con] -> [Clause]
-toShapelyClauses cs = 
-    let pats = map toShapelyPat cs
-        bdies = map NormalB $ toShapelyExps cs
-    in zipWith (\p bdy-> Clause [p] bdy []) pats bdies
+drvShapely :: [Name] -> Maybe Dec -> Dec -> Dec
+drvShapely recChildNms mNewtypeWrap dec@(DataD _ nm bndings cnstrctrs _) = 
+    InstanceD [] (AppT (ConT ''Shapely) ( t )) [
+         TySynInstD ''Normal [ t ] (
 
-toShapelyPat :: Con -> Pat
-toShapelyPat (NormalC n sts) = ConP n $ map VarP $ take (length sts) ordNames
-toShapelyPat _ = error "TODO, sorry"
-
-ordNames :: [Name]
-ordNames = [ mkName ('s':show t) | t <- [1..] :: [Int] ] --infinite list of names for sums
-
-toShapelyExps :: [Con] -> [Exp]
-toShapelyExps [c]    = [toShapelySumExp c]
-toShapelyExps (c:cs) = AppE (ConE 'Left) (toShapelySumExp c) : map (AppE $ ConE 'Right) (toShapelyExps cs)
-toShapelyExps [] = error "type has no constructors"
-
-toShapelySumExp :: Con -> Exp
-toShapelySumExp (NormalC _ sts) = toShapelyTuple $ take (length sts) ordNames
-    where toShapelyTuple [n] = VarE n
-          toShapelyTuple (n:ns) = TupE [VarE n, toShapelyTuple ns]
-          -- empty constructor is unit type:
-          toShapelyTuple [] = ConE '()
-toShapelySumExp _ = error "TODO, sorry"
-
-
--- -------------------------
--- TYPE CONVERSION HELPERS:
-
--- takes a list of constructors from the original type and returns a single
--- data type built using only (,), Either, and ()
--- This bit does the products, calling 'shapelysums' for each constructor
-shapelyProds :: [Con] -> Q Type
-shapelyProds [NormalC _ args] = shapelysums args
-shapelyProds ((NormalC _ args):cs) = 
-    [t| Either $(shapelysums args) $(shapelyProds cs) |] 
-shapelyProds [] = [t| () |] -- only used on constructor-less types
-shapelyProds _ = error "TODO, sorry"
-
--- convert a constructor into singleton type values, tuples and unit:
-shapelysums :: [StrictType] -> Q Type
-shapelysums = nsums . map snd where
---shapelysums (nm,wrapperNm) = nsums . map (replaceRec . snd) where -- RECURSIVE TYPE CONVERSION
-    nsums [t]    = return t
-    nsums (t:ts) = fmap (AppT (AppT (TupleT 2) t)) (nsums ts)
-    nsums []     = [t| () |] -- only used for empty constructor, e.g. Nothing
+            tNorm bcnstrctrs
+            -- AppT (AppT (ConT 'Either) (TupleT 0)) 
+            --      (AppT (AppT (TupleT 2) (VarT a_0)) 
+            --            (AppT (AppT (TupleT 2) (AppT (ConT 'AlsoNormal) 
+            --                                         (AppT ListT (VarT a_0)))) (TupleT 0)))
+            -- )
+            )
+       , FunD 'to (
+              toClauses id bcnstrctrs
+              -- Clause [ConP GHC.Types.[] []] (NormalB (
+              --       AppE (ConE Data.Either.Left) (ConE GHC.Tuple.())
+              --  )) []
+            -- , Clause [ConP GHC.Types.: [VarP a_1,VarP as_2]] (NormalB (
+              --       AppE (ConE Data.Either.Right) 
+              --          (TupE [VarE a_1,TupE [
+              --               InfixE (Just (ConE Also)) (VarE GHC.Base.$) (Just (AppE (VarE to) (VarE as_2)))
+              --              ,ConE GHC.Tuple.()]]
+              --          )
+              --  )) []
+            )
+         -- i.e. constructorsOf = \_->  (the type's constructor(s))
+       , ValD (VarP 'constructorsOf) (NormalB $ LamE [WildP] ( constrsOf bcnstrctrs)) []
+       ]
+  where
+    bcnstrctrs :: [BasicCon]
+    bcnstrctrs = map basicCon cnstrctrs
     
-    --replaceRec = namemapT (\n -> if n == nm then wrapperNm else n) -- RECURSIVE TYPE CONVERSION
+    t :: Type
+    t = maybe (typedec2Type dec) typedec2Type mNewtypeWrap
 
-{-  FOR HANDLING CONVERTING RECURSIVE TYPES
- -  IF WE DECIDE TO DO THIS IN THE FUTURE
--- traverse a Type tree, modifying names:
-namemapT :: (Name -> Name) -> Type -> Type
-namemapT f (ForallT bs ctxt t) = (ForallT bs ctxt $ namemapT f t)
-namemapT f (AppT t1 t2) = AppT (namemapT f t1) (namemapT f t2)
-namemapT f (SigT t k) = SigT (namemapT f t) k
-namemapT f (ConT n) = ConT $ f n
-namemapT f (VarT n) = VarT $ f n
-namemapT _ t = t
+    -- ----
+    tNorm :: [BasicCon] -> Type
+    tNorm [c] = tNormProd c
+    tNorm (c:cs) = AppT (AppT (ConT ''Either) (tNormProd c)) (tNorm cs) -- i.e. Either (tNormProd c) (tNorm cs)
+    tNorm _ = error "Type has no constructors, so has no 'shape'."
 
-namemapE :: (Name -> Name) -> Exp -> Exp
-namemapE = undefined
--}
+    tNormProd :: BasicCon -> Type
+    tNormProd = tNormProd' . snd where
+        tNormProd' = foldr (AppT . AppT (TupleT 2)) (TupleT 0) -- i.e. foldr (,) () constructors
+
+    -- ----
+    toClauses coprodWrapper [c] = [toClauseProd coprodWrapper c]
+    toClauses coprodWrapper (c:cs) = 
+      toClauseProd (coprodWrapper . AppE (ConE 'Left)) c 
+        : toClauses (coprodWrapper . AppE (ConE 'Right)) cs
+    toClauses coprodWrapper _ = error "Type has no constructors, so has no 'shape'."
+
+    toClauseProd :: (Exp -> Exp) -> BasicCon -> Clause
+    toClauseProd coprodWrapper (n, ts) = 
+      Clause [ConP n boundVars] (NormalB $ coprodWrapper prodBody) [] -- e.g. to { (Fook a b) = Left (a,(b,())) }
+        where boundNames = map (mkName . ("a"++) . show) $ map fst $ zip [0..] ts 
+              boundVars :: [Pat]
+              boundVars = map VarP boundNames   -- e.g. to (Fook { a0 a1 }) = ...
+              prodBody :: Exp
+              prodBody = tupleList $ map VarE boundNames
+
+    -- ----
+    constrsOf :: [BasicCon] -> Exp
+    constrsOf [] = error "Type has no constructors, so has no 'shape'."
+    constrsOf [(n,_)] = ConE n                      -- e.g. Foo :: *, or Foo :: * -> *, etc.
+    constrsOf cs      = tupleList $ map (ConE . fst) cs -- e.g. (Foo, (Bar, (Baz,())))
+
+tupleList :: [Exp] -> Exp
+tupleList = foldr tupleUp (ConE '())
+    where tupleUp e0 e1 = TupE [e0,e1]
+
+type BasicCon = (Name, [Type])
+basicCon :: Con -> BasicCon
+basicCon (NormalC n sts)          = (n, map snd sts)
+basicCon (RecC n vsts)            = (n, map (\(_,_,t)-> t) vsts)
+basicCon (InfixC (_,t0) n (_,t1)) = (n, [t0,t1])
+basicCon (ForallC bnds cxt con) = error "forall not handled yet" -- not sure how/if this would work
+
+
+typedec2Type :: Dec -> Type
+typedec2Type (DataD _ nm bndings _ _) = foldl (\c-> AppT c . VarT . varName) (ConT nm) bndings  -- i.e. data Foo a b = .. ->  .. :: Foo a b
+typedec2Type (NewtypeD _ nm bndings _ _) = foldl (\c-> AppT c . VarT . varName) (ConT nm) bndings
+typedec2Type _ = error "Some non-type Dec value"
+
+varName :: TyVarBndr -> Name
+varName (PlainTV n) = n
+varName (KindedTV n _) = n
+{-
+instance Shapely [a] where 
+    -- NOTE: data [] a = [] | a : [a]    -- Defined in `GHC.Types'
+    type Normal [a] = Either () (a,(AlsoNormal [a],()))
+    to []         = Left ()
+    to ((:) a as) = Right (a, (Also $ to as, ()))
+    constructorsOf _ = ([],(\a as-> (:) a (from $ normal as),()))
+
+---->
+
+InstanceD [] (AppT (ConT Shapely) (AppT ListT (VarT a_0))) [
+    TySynInstD Normal [AppT ListT (VarT a_0)] (
+        AppT (AppT (ConT Data.Either.Either) (TupleT 0)) 
+             (AppT (AppT (TupleT 2) (VarT a_0)) 
+                   (AppT (AppT (TupleT 2) (AppT (ConT AlsoNormal) 
+                                                (AppT ListT (VarT a_0)))) (TupleT 0))))
+    ,FunD to [
+        Clause [ConP GHC.Types.[] []] (NormalB (AppE (ConE Data.Either.Left) (ConE GHC.Tuple.()))) []
+        ,Clause [ConP GHC.Types.: [VarP a_1,VarP as_2]] (NormalB (AppE (ConE Data.Either.Right) 
+                                                                       (TupE [VarE a_1,TupE [
+                                                                                InfixE (Just (ConE Also)) (VarE GHC.Base.$) (Just (AppE (VarE to) (VarE as_2)))
+                                                                               ,ConE GHC.Tuple.()]]
+                                                                        ))) []
+                                   ]
+       ,ValD (VarP constructorsOf) (NormalB (VarE GHC.Err.undefined)) []
+       ]
+    -}

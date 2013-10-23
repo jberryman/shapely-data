@@ -202,3 +202,21 @@ test_viewFirstTypeOf_coprod2 = (Right $ Left () :: Either (Int,()) (Either () ()
 
 nub_prod :: (Int, (Char, (Bool, ())))
 nub_prod = nubType (undefined :: (Int,(Char,(Int,(Int,(Bool,(Bool,())))))))
+
+
+-------- TH DERIVING:
+
+data A = A deriving (Eq,Show)  -- ()
+data B = B Int deriving (Eq,Show)
+data C a b = C a b deriving (Eq,Show) -- (,)
+
+data D a b = D0 a | D1 b deriving (Eq,Show) -- Either
+data E a = E0 | E1 a deriving (Eq,Show) -- Maybe
+data F a b c = F0 a b c | F1 a b | F2 a deriving (Eq,Show)
+
+deriveShapely [''A]
+deriveShapely [''B]
+deriveShapely [''C]
+deriveShapely [''D]
+deriveShapely [''E]
+deriveShapely [''F]
