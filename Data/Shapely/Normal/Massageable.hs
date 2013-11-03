@@ -17,6 +17,38 @@ import Control.Arrow((***))
 
 -- An internal module mostly to keep use of OverlappingInstances isolated
 
+--TODO NOTES:
+-- check if it's necessary to pass around outer type for AlsoNormal subterms
+--    - currently fails if *any* AlsoNormal's not corresponding to direct top-level recursion
+--    - the set of types to AlsoNormal is known at shspelyDerive time, and could be used in a new method.
+--      - 
+--    - if we had another method that marked AlsoNormal fields (and sub-fields?)
+--      - we could implement 'from' in terms of 'constructorsOf' (which would
+--        now be the real constructors) and this new method
+--
+-- in source we see an AlsoNormal x
+--    we need to get *the only* term 'y' in target where 
+--       MassageableNormal (Normal y) (Normal x)
+--         where the target is a different AlsoNormal
+--           requires a MassageableNormalPred class. Is that doable? Could it lead to 
+--    or where..
+--       from ax = y
+--         where the target is an opaque term with a Shapely instance
+--           requires ShapelyPred (impossible)
+-- This means either 
+--
+-- We could insist on single-recursive, but not necessarily top-level recursive:
+--   - new type function for the recursive child types
+--   - perhaps could default it to the type of Shapely instance arg in class dec
+--   - ???
+--   - then we force people to use inlining, etc. to make a type directly recursive?
+-- ...But this means that we only support wrapper type with recursive terms as
+-- direct subterms.
+--
+-- Perhaps a new method where subterms in which to "descend" are given as a
+-- list in order-to-be-traversed, and then we can match corresponding terms in
+-- source and target?
+--
 
 
 -- We need to be able to choose instances based on *whether* a type is a member
@@ -33,8 +65,10 @@ import Control.Arrow((***))
 
 -- We avoid code duplication (and lots of programming errors) here & below by
 -- combining the "functional" class with the predicate class. True instances
--- actually work, and False instances never make it past the typechecker.
+-- have real working method instances, and False instances never make it past
+-- the typechecker.
 class TypeIndexPred a l l' b | a l -> l', a l l' -> b where
+    -- pull the only value of type 'a' out of 'l' yielding 'l''
     viewType :: l -> (a,l')
     viewType = error "viewType: Method called in False predicate instance"
 
@@ -109,7 +143,7 @@ instance (MassageableNormalRec FLAT FLAT x y)=> MassageableNormal x y where
 --    TODO put code we used in tests here !!!
 --
 -- One limitation is we don't support a way to handle recursive structures
--- beyond simple recursion (e.g. mutually-recusrive pairs of types).
+-- beyond top-level direct recursion (e.g. mutually-recusrive pairs of types).
 --
 -- Any feedback on the above behavior would be greatly appreciated.
 class Massageable a b where
@@ -209,13 +243,14 @@ instance ( ProductToProductPred True pa pb xxs' ys tailsTIPMassageable
 
 -- when the head of target is a recursive 'b' term, we try to pull an
 -- equivalent recursive 'a' term out of the source tuple, insisting that they also
--- be massageable.
+-- be massageable. Inductive proof?
 instance ( ProductToProductPred True pa pb xxs' ys tailsTIPMassageable
          , TypeIndexPred (AlsoNormal pa) (x,xs) xxs' xxsHasRecursiveA
          , And tailsTIPMassageable xxsHasRecursiveA b
          , MassageableNormalRec pa pb (Normal pa) (Normal pb)
     )=> ProductToProductPred True pa pb (x,xs) (AlsoNormal pb, ys) b where
-    massageProdProd ps = (alsoMassage (snd ps) *** massageProdProd ps) . viewType -- TODO: or make a massageable instance for AlsoNormal?
+    massageProdProd ps = (alsoMassage (snd ps) *** massageProdProd ps) . viewType 
+    -- TODO: or make a massageable instance for AlsoNormal?
 
 
 ---- order-preserving style: ----

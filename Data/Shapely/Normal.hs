@@ -56,6 +56,11 @@ import qualified Prelude
 
 
 -- TODO?
+--      - decide if we want to just do direct, top-level recursion with AlsoNormal for now
+--      - documentation:
+--          - make note about plans for AlsoNormal on that constructor
+--          - fix 'limitations' section
+--          - make a note about future plans for inlining.
 --      - implement TH stuff, derive instances for all built-in types
 --      - implement thorough tests for 'massage', and TH-derived stuff.
 --          - especially recursion, which we haven't tested well
@@ -127,10 +132,13 @@ viewr :: (Symmetric (->) p, Shiftable t, ShiftedR t ~ p a b) => t -> p b a
 viewr = swap . shiftr
 
 
--- | Class supporting normal type equivalent to list @concat@ function, for
--- 'Coproduct's as well as 'Product's.
+-- TODO: or name this class "higher-order normal" or something?
+--       we should be able to do 'append' here with a match on ((x,xs),xss) .. ((),xss)... etc.
+-- | Class for flattening a 'Product' of 'Product's, or a nested sum of
+-- 'Coproduct's.
 class Concatable xs where
     type Concated xs
+    -- | A generalization of 'Data.List.concat' for sums and products
     concat :: xs -> Concated xs
 
 instance Concatable () where
@@ -235,6 +243,15 @@ instance (Shiftable (Either y zs)
 
 
 
+-- TODO: rethink this and Concatable
+--         - This is a bit redundant in light of Concatable, though we'd have
+--            to move the functionality here up there
+--         - in that case we want to use perhaps :**:, or something with an
+--            arrow a.la list comprehensions?
+--       make room for a "multiply" function for products and coproducts. 
+--          - NOTE: cartesian product of coproducts
+--
+
 -- | A @(++)@-like append operation on 'Product's and 'Coproduct's. See also
 -- ('.++.'). e.g.
 --
@@ -299,7 +316,7 @@ x <! y = (x,(y,()))
 
 -- | > constructorsOfNormal = 'unfanin' id
 --
--- Ex.
+-- See also 'constructorsOf'. E.g.
 --
 -- > constructorsOfNormal ('a',('b',())) 'x' 'y'  ==  ('x',('y',()))
 constructorsOfNormal :: (Fans r r)=> r -> (r :=>-> r)

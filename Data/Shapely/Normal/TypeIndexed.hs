@@ -18,6 +18,8 @@ import Data.Shapely.Classes
 
 -- TODO 
 --    - type indexed 'factor' (and even 'distribute')
+--    - inject :: prod -> coprod
+--    - `nub` for coprod (perhaps calling `inject`)
 --    - Unique (or TypeSet, or...?) class (i.e. for products this is a TIP), or
 --    predicate class (clean up TypeIndexPred in Massageable, keeping method
 --    hidden) 

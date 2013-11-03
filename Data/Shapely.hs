@@ -12,23 +12,27 @@ module Data.Shapely (
 /Issues and Limitations:/
 .
   - Users can't express recursive structure of types in their own code without
-    depending on this package for 'AlsoNormal'
+    depending on this package for 'AlsoNormal'.
 .
   - 'massage' does not support mutually-recursive types and other more
-    complicated recursion schemes (yet)
+    complicated recursion schemes (yet).
 
-  - we don't know how to create normal form structure for fancy things like: 
-    @data T f a = T (f (T f a))@
+  - We don't know how to create an interesting \"normal\" form structure for
+    fancy things like: @data T f a = T (f (T f a))@.
+
+  - Performance hasn't been tested at all.
 
  -}
       Product(..), Coproduct(..)
     , Shapely(..), AlsoNormal(..)
+    -- * Deriving Shapely instances automatically
+    , deriveShapely
+
     , Isomorphic(..), coerce, Massageable(..)
     , ($$)
     ) where
 
--- TODO: export TH functionality here
---import Data.Shapely.TH
+import Data.Shapely.TH
 import Data.Shapely.Classes
 import Data.Shapely.Normal.Classes
 import Data.Shapely.Normal.Massageable
