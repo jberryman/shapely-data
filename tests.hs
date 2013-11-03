@@ -114,6 +114,13 @@ test_extract = let s' :: Either (Int,()) (Either (Int,()) (Int,()))
 
 
 -- Massageable tests:
+--
+-- TODO check recursion with target having multiple *different* but equivalent
+-- *massageable* subterms. (or something)
+-- TODO test how TIP class works with e.g. (AlsoNormal a, (b, (AlsoNormal
+-- c,()))), where AlsoNormal a ~ AlsoNormal c (and where it does not). Are
+-- these considered equal, and so product would be order-significant? Should we
+-- say that all AlsoNormal subterms are equal for this purpose?
 {- 
 *Data.Shapely.Compose.Massageable> let b = ('a',("hi",()))
 
@@ -220,3 +227,46 @@ deriveShapely [''C]
 deriveShapely [''D]
 deriveShapely [''E]
 deriveShapely [''F]
+
+newtype Strange0 a = Strange0 (Either a (Strange0 a))
+-- must pass `Strange0` as recursive target.
+newtype Strange1 = Strange1 [Strange1]
+-- e.g. (S1 []) : (S1 [ S1 [], S1 [] ]) : []
+-- Either () (AlsoNormal Strange1, (AlsoNormal [Strange1], ()))
+-- we take normal form from argument [Strange1]:
+--     Either () (Strange1,([Strange1],()))
+-- ...but pass along *both* the newtype and inner wrapped type as recursion candidates
+data OddTree a rt = OddBranch (OddTree a rt) a rt | OddLeaf
+newtype Strange3 a = Strange3 (OddTree a (Strange3 a))
+-- Either (AlsoNormal (OddTree a (Strange3 a)), (a, (AlsoNormal (Strange3 a), ()))) ()
+-- (this is the same as Strange1)
+newtype Strange4 = Strange4 ([Either Strange4 Int]) -- a strange rose tree
+-- we have a mutually-recursive structure, but where recursive subterms are not at top-level, same as:
+data Strange4' = Cons4' (Either Strange4' Int) Strange4' | Empty4'
+-- Either (Either (AlsoNormal (Strange4')) (Int,()) , (AlsoNormal Strange4', ())) ()
+--         \ ____________________________________ /
+--              Normal (Either Strange4' Int)
+--
+-- We can't wrap in AlsoNormal, because an instance AlsoNormal (Either
+-- Strange4' Int) would overlap . But if that Either was a type we didn't have
+-- a Shapely instance for, we'd need to generate it. But we'd in turn need to
+-- generate the instance for the newtype-wrapped type, since we need its
+-- recursive Strange4' term bound. So...
+--
+-- A different approach seems in order:
+--    - reify all *exposed* types on the RHS of type declaration
+--    - add AlsoNormal wrappers everywhere necessary to break cycles
+--        this might mean doing AlsoNormal [Foo] but keeping [Bar]
+-- 
+-- Or maybe transform to a "flat" type first? by running an `mconcat`, e.g.
+-- Strange4' becomes:
+--     data Strange4' = Cons4'A Strange4' Strange4' 
+--                    | Cons4'B Int Strange4' 
+--                    | Empty4'
+-- And `data Bar a= Bar Int ((a,Char) , Int)` becomes:
+--     data Bar a = Bar Int a Char Int
+--
+-- But then how de we differentiate between an Int term (which we shouldn't try
+-- to "unpack") and a Foo term? Just if it has arguments or not? 
+--
+-- Perhaps look at other generics libraries and see what they do.

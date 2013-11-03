@@ -60,28 +60,50 @@ deriveShapely nms =
      in forM nnms $ \recChildNms@(n:_) -> do
           i <- reify n 
           case i of -- :: (type family instance, toSHapely lambda, fromShapely lambda?
-               (TyConI d) -> return $
+               (TyConI d) -> 
                  case d of
-                      (DataD _ nm bndings cnstrctrs _) -> drvShapely recChildNms Nothing d
-                      (NewtypeD _ nm bindings cnstrctr _) -> error "TODO handle newtype wrappers"
-                                  {-
-                                                              -- GOAL: get from this mess the Dec for the type wrapped, get a name and do 'reify'?
-                                                              -- remember: tupleDataName :: Int -> Name
-                        -- consider:
-                        --   newtype Y = Y X
-                        --   newtype X = X Y
-                            case cnstrctr of
-                                 NormalC c_nm [(_,t)]
-                                 RecC c_nm [(_,_,t)]
-                                 _ -> error "Infix or forall or somehow multiple args to newtype constructor"
-                                 -}
+                      (DataD _ nm bndings cnstrctrs _) -> return $
+                        drvShapely recChildNms (mkType nm bndings) cnstrctrs
+
+                      (NewtypeD _ nm bindings cnstrctr _) -> do
+                        let (con,[wrappedT]) = basicCon cnstrctr
+                            -- wrappedT, e.g. = AppT (ConT Data.Maybe.Maybe) (VarT a_2))
+                        d' <- reifyDecFromType wrappedT
+                        case d' of
+                             (DataD _ nm' bndings' cnstrctrs' _) -> 
+                                -- we map the variables from the newtype wrapper to the underlying data constructors:
+                                let cnstrctrsMapped = mapTypeVars wrappedT bndings' cnstrctrs'
+                                 in drvShapely recChildNms (mkType nm bndings) cnstrctrsMapped
+                             -- consider:
+                             --   newtype Y = Y X
+                             --   newtype X = X Y
+                             (NewtypeD _ _ _ _ _) -> error "For now we only handle one layer of newtype wrapping (to avoid infinite loops). Let me know if you care"
+                             _ -> error "ZAAAAPPP! Something went wrong..."
+
                       _ -> error "This is either impossible, or a user error"
                (PrimTyConI _ _ _) -> error "We can't generate instances for primitive type constructors. Note that 'newtype' wrapped primitive types are also not allowed, as we don't consider newtypes structural"
                _ -> error "Please pass the name of a type constructor"
 
+mapTypeVars :: Type -> [TyVarBndr] -> [Con]
+mapTypeVars 
 
-drvShapely :: [Name] -> Maybe Dec -> Dec -> Dec
-drvShapely recChildNms mNewtypeWrap dec@(DataD _ nm bndings cnstrctrs _) = 
+basicType :: Type -> (Name, [Name])
+basicType (AppT (
+
+reifyDecFromType :: Type -> Q Dec
+reifyDecFromType t = do
+    (TyConI d) <- reify $ constrName t
+    return d
+  where
+    constrName (ConT nm) = nm
+    constrName (TupleT n) = tupleTypeName n
+  --constrName t@(UnboxedTupleT _) = t   -- ?
+    constrName (AppT t _) = constrName t
+    constrName (SigT t _) = constrName t -- ?
+    constrName _ = error "We can't get the constructor name from this type"
+
+drvShapely :: [Name] -> Type -> [Con] -> Dec
+drvShapely recChildNms t cnstrctrs = 
     InstanceD [] (AppT (ConT ''Shapely) ( t )) [
          TySynInstD ''Normal [ t ] (
 
@@ -112,9 +134,6 @@ drvShapely recChildNms mNewtypeWrap dec@(DataD _ nm bndings cnstrctrs _) =
     bcnstrctrs :: [BasicCon]
     bcnstrctrs = map basicCon cnstrctrs
     
-    t :: Type
-    t = maybe (typedec2Type dec) typedec2Type mNewtypeWrap
-
     -- ----
     tNorm :: [BasicCon] -> Type
     tNorm [c] = tNormProd c
@@ -144,7 +163,7 @@ drvShapely recChildNms mNewtypeWrap dec@(DataD _ nm bndings cnstrctrs _) =
     -- ----
     constrsOf :: [BasicCon] -> Exp
     constrsOf [] = error "Type has no constructors, so has no 'shape'."
-    constrsOf [(n,_)] = ConE n                      -- e.g. Foo :: *, or Foo :: * -> *, etc.
+    constrsOf [(n,_)] = ConE n                          -- e.g. Foo :: *, or Foo :: * -> *, etc.
     constrsOf cs      = tupleList $ map (ConE . fst) cs -- e.g. (Foo, (Bar, (Baz,())))
 
 tupleList :: [Exp] -> Exp
@@ -159,10 +178,8 @@ basicCon (InfixC (_,t0) n (_,t1)) = (n, [t0,t1])
 basicCon (ForallC bnds cxt con) = error "forall not handled yet" -- not sure how/if this would work
 
 
-typedec2Type :: Dec -> Type
-typedec2Type (DataD _ nm bndings _ _) = foldl (\c-> AppT c . VarT . varName) (ConT nm) bndings  -- i.e. data Foo a b = .. ->  .. :: Foo a b
-typedec2Type (NewtypeD _ nm bndings _ _) = foldl (\c-> AppT c . VarT . varName) (ConT nm) bndings
-typedec2Type _ = error "Some non-type Dec value"
+mkType :: Name -> [TyVarBndr] -> Type
+mkType nm = foldl (\c-> AppT c . VarT . varName) (ConT nm)  -- i.e. data Foo a b = .. ->  .. :: Foo a b
 
 varName :: TyVarBndr -> Name
 varName (PlainTV n) = n
