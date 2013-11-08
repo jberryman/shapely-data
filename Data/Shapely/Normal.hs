@@ -56,23 +56,43 @@ import qualified Prelude
 
 
 -- TODO?
---      - decide if we want to just do direct, top-level recursion with AlsoNormal for now
+--      - finish implementing TH stuff, derive instances for all built-in types
+--          - change [a], and make a note about `toR`
+--      - fix Concatable/Appendable, add better Monoidal class
+--      - make sure we know exactly how OverlappingInstances and
+--        UndecidableInstances are working and that they're safe here
+--      - check if some of our type families can make use of coincident overlap, to make more things reducuble and simplify constraints:
+--           http://typesandkinds.wordpress.com/2013/04/29/coincident-overlap-in-type-families/
+--      - create a length-indexed list (opaque for safety) that is, perhaps
+--        Foldable/Traversable and can be converted from and back into a Product.
+--        Maybe replace toList with Foldable.toList
 --      - documentation:
 --          - make note about plans for AlsoNormal on that constructor
 --          - fix 'limitations' section
 --          - make a note about future plans for inlining.
---      - implement TH stuff, derive instances for all built-in types
 --      - implement thorough tests for 'massage', and TH-derived stuff.
 --          - especially recursion, which we haven't tested well
 --      - take last look at easy construction of normal-form types
 --      - create some examples that re-create GHC generics motivation
---      - use some scheme to close type classes?
---         - finalize exports, modules
+--      - finalize exports, modules
 --
 --   v0.2:
+--      - move to closed type families, look at replacing OverlappingInstances with these by using families for type equality
+--          - make Normal canonical (not recursive)
+--          - create a NormalR class for direct recursive types,make massage, coerce, etc. use NormalR
+--              - or maybe make `to :: a -> (SpineWithTypes (a,()) (Normal a))`, (keeping `constructors` working same w/r/t Normal)
+--          - use `data Spine tps a = Spine (SpineWithTypes tps (Normal a))` (or something) for spine structure
+--          - replace Rec with `type Rec a = Spine (Proxy a,()) a`
+--      - use some scheme to close type classes (maybe closed type fams will help)
 --      - freeze 'massage' behavior
---      - incorporate TypeNat stuff (for specifying length and constructor number)
+--      - support inlining, and "templates" defining structure. Have NormalR use this
+--      - maybe: 
+--          - type-indexed 'factor' (and maybe 'distrivbute')
+--          - incorporate TypeNat stuff (for specifying length and constructor number)
 --
+--    sometime:
+--      - see if where and if we can make interesting use of DataKinds
+--      - read "Small induction recursion..." paper
 --
 -- OTHER FUNCTIONS:
 --   

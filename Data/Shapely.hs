@@ -8,6 +8,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 -- TODO clean up above
 module Data.Shapely (
+-- TODO: move this to the .cabal file
 {- | 
 /Issues and Limitations:/
 .
@@ -17,10 +18,15 @@ module Data.Shapely (
   - 'massage' does not support mutually-recursive types and other more
     complicated recursion schemes (yet).
 
-  - We don't know how to create an interesting \"normal\" form structure for
-    fancy things like: @data T f a = T (f (T f a))@.
+  - Adding meaningful structure to newtype wrapped types and terms with type
+    application (e.g. @data T f a = T (f (T f a))@) should be handled with some
+    type of 'Monoidal'-style inlining mechanism, but I'm not sure of the
+    details of API design and implementation.
 
-  - Performance hasn't been tested at all.
+  - While all classes except 'Shapely' are considered closed, we don't do any
+    tricks to enforce that in the API yet.
+
+  - Performance hasn't been tested at all yet.
 
  -}
       Product(..), Coproduct(..)
