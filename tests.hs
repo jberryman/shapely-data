@@ -1,5 +1,6 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Main
     where
 
@@ -213,6 +214,7 @@ nub_prod = nubType (undefined :: (Int,(Char,(Int,(Int,(Bool,(Bool,())))))))
 
 -------- TH DERIVING:
 
+-- NON-RECURSIVE:
 data A = A deriving (Eq,Show)  -- ()
 data B = B Int deriving (Eq,Show)
 data C a b = C a b deriving (Eq,Show) -- (,)
@@ -221,12 +223,20 @@ data D a b = D0 a | D1 b deriving (Eq,Show) -- Either
 data E a = E0 | E1 a deriving (Eq,Show) -- Maybe
 data F a b c = F0 a b c | F1 a b | F2 a deriving (Eq,Show)
 
-deriveShapely [''A]
-deriveShapely [''B]
-deriveShapely [''C]
-deriveShapely [''D]
-deriveShapely [''E]
-deriveShapely [''F]
+$(deriveShapely ''A)
+$(deriveShapely ''B)
+$(deriveShapely ''C)
+$(deriveShapely ''D)
+$(deriveShapely ''E)
+$(deriveShapely ''F)
+
+-- RECURSIVE:
+-- TODO:
+
+
+{-
+-- TO THINK ABOUT, when doing inlining, deeper structure on next version:
+-- these are old notes
 
 newtype Strange0 a = Strange0 (Either a (Strange0 a))
 -- must pass `Strange0` as recursive target.
@@ -270,3 +280,4 @@ data Strange4' = Cons4' (Either Strange4' Int) Strange4' | Empty4'
 -- to "unpack") and a Foo term? Just if it has arguments or not? 
 --
 -- Perhaps look at other generics libraries and see what they do.
+-}
