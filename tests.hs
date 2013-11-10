@@ -17,7 +17,6 @@ import Data.Shapely.Normal.TypeIndexed
 --  TODO QUESTIONS:
     -- How does this work with polymorphic terms?
     -- And what about in Massageable, can we do massage (:: Foo a b) :: Bar b a   ??
-    -- What about the fact that users can instantiate a polymorphic term as AlsoNormal, what happens there?
     -- can we use the "extra method trick"?
     -- what about types like data `Fix f = f (Fix f)`
 
@@ -114,73 +113,64 @@ test_extract = let s' :: Either (Int,()) (Either (Int,()) (Int,()))
                 in extract s'  ==  (1,())
 
 
--- Massageable tests:
---
--- TODO check recursion with target having multiple *different* but equivalent
--- *massageable* subterms. (or something)
--- TODO test how TIP class works with e.g. (AlsoNormal a, (b, (AlsoNormal
--- c,()))), where AlsoNormal a ~ AlsoNormal c (and where it does not). Are
--- these considered equal, and so product would be order-significant? Should we
--- say that all AlsoNormal subterms are equal for this purpose?
-{- 
-*Data.Shapely.Compose.Massageable> let b = ('a',("hi",()))
+-------- MASSAGEABLE
 
-    -- must not typecheck
-    *Data.Shapely.Compose.Massageable> massageNormal b :: Either (String,(Char,())) (Char,(String,())) 
-    *Data.Shapely.Compose.Massageable> massageNormal () :: Either () ()
 
-    -- must typecheck:
-    *Data.Shapely.Compose.Massageable> massageNormal b :: Either (Int,(Char,())) (String,(Char,()))
-    *Data.Shapely.Compose.Massageable> massageNormal () :: Either () (String,(Char,()))
-    *Data.Shapely.Compose.Massageable> massageNormal () :: Either (String,(Char,())) ()
-    *Data.Shapely.Compose.Massageable> massageNormal b :: Either (Char,(Int,())) (String,(Char,()))
-    *Data.Shapely.Compose.Massageable> massageNormal b :: Either (Char,(String,(Int,()))) (Either () (String,(Char,())))
-    *Data.Shapely.Compose.Massageable> massageNormal b :: Either (String,()) (String,(Char,()))
+mb = ('a',("hi",()))
 
-*Data.Shapely.Compose.Massageable Control.Arrow> let c = (Left ('a',("hi",()))) :: Either (Char,(String,())) ()
+mb_0 :: Either () (String,(Char,()))
+mb_0 = massageNormal () 
+mb_1 :: Either (String,(Char,())) ()
+mb_1 = massageNormal () 
+mb_2 :: Either (Int,(Char,())) (String,(Char,()))
+mb_2 = massageNormal mb 
+mb_3 :: Either (Char,(Int,())) (String,(Char,()))
+mb_3 = massageNormal mb 
+mb_4 :: Either (Char,(String,(Int,()))) (Either () (String,(Char,())))
+mb_4 = massageNormal mb 
+mb_5 :: Either (String,()) (String,(Char,()))
+mb_5 = massageNormal mb 
 
-    *Data.Shapely.Compose.Massageable Control.Arrow> massageNormal c :: Either (Int,()) (Either (String,(Char,())) ())
+mc = Left mb :: Either (Char,(String,())) ()
+
+mc_0 :: Either (Int,()) (Either (String,(Char,())) ())
+mc_0 = massageNormal mc 
     
-    -- must not typecheck:
-    massageNormal c :: Either (Int,()) (Either (String,(Char,())) (String,()))
-
 -- Testing ordered tuples:
-*Data.Shapely.Compose.Massageable Control.Arrow> let d = (Left ('a',('b',(3,())))) :: Either (Char,(Char,(Int,()))) ()
+md = (Left ('a',('b',(3,())))) :: Either (Char,(Char,(Int,()))) ()
 
-    -- must not typecheck
-    massageNormal d :: Either (Char,(Char,(Int,()))) (Either () (Char,(Char,(Int,()))))
-    massageNormal d :: Either (Char,(Char,(Bool,()))) (Either (Int,()) (Char,(Char,(Int,()))))
+md_0 :: Either (Char,(Char,(Bool,()))) (Either () (Char,(Char,(Int,()))))
+md_0 = massageNormal md 
 
-    -- must typecheck:
-    massageNormal d :: Either (Char,(Char,(Bool,()))) (Either () (Char,(Char,(Int,()))))
-    massageNormal d :: Either (Char,(Int,(Char,()))) (Either () (Char,(Char,(Int,())))) == Right $ Right ('a',('b',(3,())))
-    massageNormal ('a',('b',(True,()))) :: Either (Bool,()) (Char,(Char,(Bool,())))
-    massageNormal ('a',('b',())) :: Either (Char,(Char,())) (Either () (Int,()))
+md_1_pred = ( massageNormal md :: Either (Char,(Int,(Char,()))) (Either () (Char,(Char,(Int,())))) ) == (Right $ Right ('a',('b',(3,()))))
+md_2_pred = ( massageNormal ('a',('b',(True,()))) :: Either (Bool,()) (Char,(Char,(Bool,()))) ) == (Right ('a',('b',(True,()))))
+md_3_pred = ( massageNormal ('a',('b',())) :: Either (Char,(Char,())) (Either () (Int,())) ) == (Left ('a',('b',())))
 
+{- 
+-- must not typecheck
+massageNormal mb :: Either (String,(Char,())) (Char,(String,())) 
+massageNormal () :: Either () ()
+massageNormal mc :: Either (Int,()) (Either (String,(Char,())) (String,()))
     
+-- ordered product style
+massageNormal md :: Either (Char,(Char,(Int,()))) (Either () (Char,(Char,(Int,()))))
+massageNormal md :: Either (Char,(Char,(Bool,()))) (Either (Int,()) (Char,(Char,(Int,()))))
+-}
+
 -- Testing recursion:
+mr_id_pred = massage "foo" == "foo"
 
+data OrderedRec = OCons Int Int OrderedRec | ONull deriving Eq
+$(deriveShapely ''OrderedRec)
+orderedr_id_pred = massage (OCons 1 1 (OCons 2 2 ONull)) == (OCons 1 1 (OCons 2 2 ONull))
 
-    -- [a] with both order of products and coproducts reversed:
-    data Tsil a = Snoc (Tsil a) a
-              | Lin
-              deriving Show
+-- [a] with both order of products and coproducts reversed:
+data Tsil a = Snoc (Tsil a) a
+          | Lin
+          deriving Eq
+$(deriveShapely ''Tsil)
+m_unorderedr_pred = massage "123" == Snoc (Snoc (Snoc Lin '3') '2') '1'
 
-    instance Shapely (Tsil a) where
-        type Normal (Tsil a) = Either (AlsoNormal (Tsil a), (a, ())) ()
-        to (Snoc l n) = Left (Also . to $ l , (n ,()))
-        to Lin = Right ()
-        from (Right ()) = Lin
-        from (Left (an,(n,()))) = Snoc (from . normal $ an) n
-        
-        constructorsOf _ = (\an n-> Snoc (from . normal $ an) n, (Lin,()))
-      --constructorsOf _ = (Snoc,(Lin,()))  -- recursive!
-        or :
-        from = fanin constructors . nonrecursive
-
-    massageRec "123"  :: Tsil Char
-
- -}
 
 
 -------- TYPE-INDEXED 

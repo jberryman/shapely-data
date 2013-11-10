@@ -10,6 +10,7 @@ module Data.Shapely.Normal.Isomorphic
 import Data.Shapely.Category
 import Data.Shapely.Classes
 import Data.Shapely.Normal.Classes
+import Data.Shapely.Utilities
 
 -- separated, again, to contain OverlappingInstances
 
@@ -24,7 +25,6 @@ class (Shapely a, Shapely b)=> Isomorphic a b where
 
 instance (IsoNormal a (Normal a) (Normal b), Shapely a, Shapely b)=> Isomorphic a b where
     coerce a = coerceNormalOf a $$ a
-                where ($$) f = from . f . to -- TODO move definition from Data.Shapely
 
 class IsoNormal a na nb where
     coerceNormalOf :: a -> na -> nb

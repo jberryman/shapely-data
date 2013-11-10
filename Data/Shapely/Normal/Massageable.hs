@@ -12,43 +12,15 @@ import Data.Shapely.Normal.Classes
 import Data.Shapely.Normal.TypeIndexed hiding(viewType)
 import Data.Shapely.Bool
 import Data.Shapely.Category(swapFront)
+import Data.Shapely.Utilities
 
 import Control.Arrow((***))
 
 -- An internal module mostly to keep use of OverlappingInstances isolated
 
---TODO NOTES:
--- check if it's necessary to pass around outer type for AlsoNormal subterms
---    - currently fails if *any* AlsoNormal's not corresponding to direct top-level recursion
---    - the set of types to AlsoNormal is known at shspelyDerive time, and could be used in a new method.
---      - 
---    - if we had another method that marked AlsoNormal fields (and sub-fields?)
---      - we could implement 'from' in terms of 'constructorsOf' (which would
---        now be the real constructors) and this new method
---
--- in source we see an AlsoNormal x
---    we need to get *the only* term 'y' in target where 
---       MassageableNormal (Normal y) (Normal x)
---         where the target is a different AlsoNormal
---           requires a MassageableNormalPred class. Is that doable? Could it lead to 
---    or where..
---       from ax = y
---         where the target is an opaque term with a Shapely instance
---           requires ShapelyPred (impossible)
--- This means either 
---
--- We could insist on single-recursive, but not necessarily top-level recursive:
---   - new type function for the recursive child types
---   - perhaps could default it to the type of Shapely instance arg in class dec
---   - ???
---   - then we force people to use inlining, etc. to make a type directly recursive?
--- ...But this means that we only support wrapper type with recursive terms as
--- direct subterms.
---
--- Perhaps a new method where subterms in which to "descend" are given as a
--- list in order-to-be-traversed, and then we can match corresponding terms in
--- source and target?
---
+--TODO:
+--   - support more complex recursive structure, maybe requiring user to pass a
+--      list of corresponding recursive pairs in source and target
 
 
 -- We need to be able to choose instances based on *whether* a type is a member
@@ -96,7 +68,7 @@ instance (IsAllUnique xs tailUnique
 
 ---------- wrapper classes we export: ----------
 
--- a flag for 'MassageableNormalRec' indicating we should not recurse into 'AlsoNormal'
+-- a flag for 'MassageableNormalRec' indicating we should not recurse into
 -- subterms. No need to export
 data FLAT = FLAT
 
@@ -129,7 +101,7 @@ instance (MassageableNormalRec FLAT FLAT x y)=> MassageableNormal x y where
 --     be significant and require a target product with the same ordering. The
 --     mapping between terms in source and target products is a bijection.
 --
---   - We map product subterms @'AlsoNormal' a@ with @AlsoNormal b@, by
+--   - We map source product subterm @a@s with target @b@ subterms, by
 --     recursively applying 'massage' (this is the only exception to the above,
 --     and the only place where we inspect 'Product' subterms).
 --
@@ -153,9 +125,8 @@ instance (Shapely a, Shapely b
          , MassageableNormalRec a b (Normal a) (Normal b)
          )=> Massageable a b where
     massage a = let b = massageNormalRec (undefined `asTypeOf` a, undefined `asTypeOf` b) $$ a
-                    ($$) f = from . f . to -- TODO or move from Data.Shapely
                  in b
-    
+
 
 ---------- implementation, left unexported: ----------
 
@@ -186,8 +157,9 @@ instance ( Product xs, Product ys
     )=> MassageableNormalRec a b xs ys where
     massageNormalRec ab = massageProdProd (undefined::isTIPStyle, ab)
 
-alsoMassage :: MassageableNormalRec pa pb (Normal pa) (Normal pb)=> (pa,pb) -> AlsoNormal pa -> AlsoNormal pb
-alsoMassage ab = Also . massageNormalRec ab . normal
+alsoMassage :: (Shapely pa, Shapely pb
+            )=> MassageableNormalRec pa pb (Normal pa) (Normal pb)=> (pa,pb) -> pa -> pb
+alsoMassage ab a = massageNormalRec ab $$ a
 
 
 ------------------------------------------------------------------------------
@@ -245,26 +217,31 @@ instance ( ProductToProductPred True pa pb xxs' ys tailsTIPMassageable
 -- equivalent recursive 'a' term out of the source tuple, insisting that they also
 -- be massageable. Inductive proof?
 instance ( ProductToProductPred True pa pb xxs' ys tailsTIPMassageable
-         , TypeIndexPred (AlsoNormal pa) (x,xs) xxs' xxsHasRecursiveA
+         , TypeIndexPred pa (x,xs) xxs' xxsHasRecursiveA
          , And tailsTIPMassageable xxsHasRecursiveA b
          , MassageableNormalRec pa pb (Normal pa) (Normal pb)
-    )=> ProductToProductPred True pa pb (x,xs) (AlsoNormal pb, ys) b where
+         , Shapely pa, Shapely pb
+    )=> ProductToProductPred True pa pb (x,xs) (pb, ys) b where
     massageProdProd ps = (alsoMassage (snd ps) *** massageProdProd ps) . viewType 
-    -- TODO: or make a massageable instance for AlsoNormal?
 
 
 ---- order-preserving style: ----
 
+-- when massaging ordered tuples we can simply match equivalent recursive
+-- massageable terms on each fst position:
+instance ( ProductToProductPred False pa pb ys ys' b
+         , MassageableNormalRec pa pb (Normal pa) (Normal pb)
+         , Shapely pa, Shapely pb
+    )=> ProductToProductPred False pa pb (pa, ys) (pb, ys') b where
+    massageProdProd ps = alsoMassage (snd ps) *** massageProdProd ps
+
 instance (ProductToProductPred False pa pb ys ys' b
     )=> ProductToProductPred False pa pb (x,ys) (x,ys') b where
     massageProdProd = fmap . massageProdProd
-
--- when massaging ordered tuples we can simply match equivalent AlsoNormal
--- terms on each fst position:
-instance ( ProductToProductPred False pa pb ys ys' b
-         , MassageableNormalRec pa pb (Normal pa) (Normal pb)
-    )=> ProductToProductPred False pa pb (AlsoNormal pa, ys) (AlsoNormal pb, ys') b where
-    massageProdProd ps = alsoMassage (snd ps) *** massageProdProd ps
+-- TO AVOID AMBIGUITY WITH OVERLAP:
+instance (ProductToProductPred False x x ys ys' b
+    )=> ProductToProductPred False x x (x,ys) (x,ys') b where
+    massageProdProd = fmap . massageProdProd
 
 
 ------------ NON-INSTANCES: ------------

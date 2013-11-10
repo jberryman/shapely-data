@@ -4,17 +4,12 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}   -- necessary for Shapely Generics instances
 {-# LANGUAGE TypeOperators #-}       -- for our cons synonym
-{-# LANGUAGE StandaloneDeriving #-}   -- these two for deriving AlsoNormal instances
-{-# LANGUAGE UndecidableInstances #-}
 -- TODO clean up above
 module Data.Shapely (
 -- TODO: move this to the .cabal file
 {- | 
 /Issues and Limitations:/
-.
-  - Users can't express recursive structure of types in their own code without
-    depending on this package for 'AlsoNormal'.
-.
+
   - 'massage' does not support mutually-recursive types and other more
     complicated recursion schemes (yet).
 
@@ -30,7 +25,7 @@ module Data.Shapely (
 
  -}
       Product(..), Coproduct(..)
-    , Shapely(..), AlsoNormal(..)
+    , Shapely(..)
     -- * Deriving Shapely instances automatically
     , deriveShapely
 
@@ -43,13 +38,6 @@ import Data.Shapely.Classes
 import Data.Shapely.Normal.Classes
 import Data.Shapely.Normal.Massageable
 import Data.Shapely.Normal.Isomorphic
+import Data.Shapely.Utilities
 
-
--- | Apply a function on the 'Normal' representation of a type to an ordinary
--- value.
---
--- > ($$) f = from . f . to
-infixr 1 $$  --TODO check is this right?
-($$) :: (Shapely a, Shapely b)=> (Normal a -> Normal b) -> a -> b
-($$) f = from . f . to
 

@@ -89,11 +89,11 @@ instance Shapely [a] where
 
 ---- TODO  derive other instances of Prelude / etc. types here
 
-
+{-
 -- | A wrapper for recursive child occurences of a 'Normal'-ized type
 newtype AlsoNormal a = Also { normal :: Normal a }
 deriving instance (Show (Normal a))=> Show (AlsoNormal a)
 deriving instance (Eq (Normal a))=> Eq (AlsoNormal a)
 deriving instance (Ord (Normal a))=> Ord (AlsoNormal a)
 deriving instance (Read (Normal a))=> Read (AlsoNormal a)
-
+-}
