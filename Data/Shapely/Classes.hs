@@ -41,12 +41,9 @@ class (Fans (Normal a) a)=> Shapely a where
     --
     -- > constructorsOf _ = (Left,(Right,()))
     --
-    -- ...possibly wrapped in a function to unwrap and apply 'from' to any
-    -- recursive 'AlsoNormal' sub-terms.
-    --
     -- Satisfies:
     --
-    -- > fanin (constructorsOf a) (to a) == a
+    -- > 'fanin' (constructorsOf a) (to a) == a
     constructorsOf :: a -> Normal a :=>-> a
 
 
@@ -79,18 +76,17 @@ instance Shapely (Either x y) where
   --from = either (Left . fst) (Right . fst)
     constructorsOf _ = (Left,(Right,()))
   
--- Where we have recursive structure, the Normal representation converts to
--- Normal form the recursive sub-terms and wraps them in AlsoNormal.
--- 'constructorsOf' does the inverse for those terms, before applying the
--- actual data constructor.
+-- The Normal form of a type is just a simple unpacking of the constructor
+-- terms, and doesn't do anything to express recursive structure. But this
+-- simple type function lets us work with different recursive structure in
+-- additional classes, like Isomorphic.
 instance Shapely [a] where 
     -- NOTE: data [] a = [] | a : [a]    -- Defined in `GHC.Types'
-    type Normal [a] = Either () (a,(AlsoNormal [a],()))
+    type Normal [a] = Either () (a,([a],()))
     to []         = Left ()
-    to ((:) a as) = Right (a, (Also $ to as, ()))
-    constructorsOf _ = ([],(\a as-> (:) a (from $ normal as),()))
+    to ((:) a as) = Right (a, (as, ()))
+    constructorsOf _ = ([],((:),()))
 
----- TODO: Check the equivalents of above in tests of TH code by using a newtype wrapper. -----
 ---- TODO  derive other instances of Prelude / etc. types here
 
 
@@ -101,8 +97,3 @@ deriving instance (Eq (Normal a))=> Eq (AlsoNormal a)
 deriving instance (Ord (Normal a))=> Ord (AlsoNormal a)
 deriving instance (Read (Normal a))=> Read (AlsoNormal a)
 
-
--- | Two types @a@ and @b@ are isomorphic if their 'Normal' representations are
--- the same.
-class (Shapely a, Shapely b, Normal a ~ Normal b)=> Isomorphic a b
-instance (Shapely a, Shapely b, Normal a ~ Normal b)=> Isomorphic a b

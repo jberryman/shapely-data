@@ -231,7 +231,12 @@ $(deriveShapely ''E)
 $(deriveShapely ''F)
 
 -- RECURSIVE:
--- TODO:
+data Li = Em | Co Char Li deriving Eq
+$(deriveShapely ''Li)
+
+th_rec_pred = let a = "works" 
+                  b = Co 'w' $ Co 'o' $ Co 'r' $ Co 'k' $ Co 's' $ Em
+               in coerce a == b && coerce b == a
 
 
 {-
