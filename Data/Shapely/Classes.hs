@@ -24,7 +24,7 @@ class (Fans (Normal a) a)=> Shapely a where
     -- be given a 'Product' Normal representation, where types with more than
     -- one constructor will be 'Coproduct's. 
     --
-    -- See the documentation for 'mkShapely', and the instances defined here
+    -- See the documentation for 'deriveShapely', and the instances defined here
     -- for details.
     type Normal a
 

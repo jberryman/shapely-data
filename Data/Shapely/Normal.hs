@@ -55,9 +55,8 @@ import Prelude hiding (replicate,concat,reverse, map)
 import qualified Prelude 
 
 
--- TODO?
+-- TODO:
 --      - finish implementing TH stuff, derive instances for all built-in types
---          - change [a], and make a note about `toR`
 --      - fix Concatable/Appendable, add better Monoidal class
 --      - make sure we know exactly how OverlappingInstances and
 --        UndecidableInstances are working and that they're safe here
@@ -74,7 +73,7 @@ import qualified Prelude
 --          - especially recursion, which we haven't tested well
 --      - take last look at easy construction of normal-form types
 --      - create some examples that re-create GHC generics motivation
---      - finalize exports, modules
+--      - finalize exports, modules, finish cabal file w/ proper docs & motivation
 --
 --   v0.2:
 --      - move to closed type families, look at replacing OverlappingInstances with these by using families for type equality
@@ -92,11 +91,14 @@ import qualified Prelude
 --
 --    sometime:
 --      - see if where and if we can make interesting use of DataKinds
+--          - replacing didactic classes with "kindly-typed" structures
 --      - read "Small induction recursion..." paper
+--      - check out "multirec" approach to recursive structure, and http://mainisusuallyafunction.blogspot.com/2010/12/type-level-fix-and-generic-folds.html
 --
 -- OTHER FUNCTIONS:
 --   
 --   - factor & distribute, (+ type-indexed variants)
+--   - a recursive, monoid-style `zipWith` (i.e. an `mappend` that does something useful recursively)?
 --
 --   taking a numeric arg (implement with sum/product "templates"/peano numbers)
 --     - length type func. (with type nats?)

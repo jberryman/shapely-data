@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses , FunctionalDependencies , FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses , FunctionalDependencies , FlexibleInstances, EmptyDataDecls #-}
 module Data.Shapely.Bool
     where
 

@@ -79,7 +79,7 @@ viewTypeOf = const . viewType
 
 
 -- | The non-empty, 'Product' or 'Coproduct' @l@, out of which we can pull the
--- unique type @a@, leaving @l'@.
+-- first occurrence of type @a@, leaving as the 'Tail' @l'@.
 class HavingType a l l' | a l -> l' where
     -- | Shift the first occurrence of type @a@ to the 'Head' of @l@.
     viewFirstType :: l -> NormalConstr l a l'

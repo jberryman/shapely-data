@@ -42,6 +42,7 @@ Library
   
   Build-depends:       base <5
                      , template-haskell >= 2 && < 3
+                     , tagged
   
   Extensions:          MultiParamTypeClasses
                      , FunctionalDependencies

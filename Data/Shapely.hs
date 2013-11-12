@@ -29,7 +29,7 @@ module Data.Shapely (
     -- * Deriving Shapely instances automatically
     , deriveShapely
 
-    , Isomorphic(..), Massageable(..)
+    , Isomorphic(..), IsomorphicWith(..), Massageable(..)
     , ($$)
     ) where
 
