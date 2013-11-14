@@ -275,9 +275,13 @@ $(fmap Prelude.concat $ forM [''LRTree , ''LTree , ''RTree ] deriveShapely)
 -- test deeper recursive structure: 
 th_rec_multi_pred = 
     let lrTree = LRTop (LBr LEm 'b' REm) 'a' (RBr LEm 'b' REm)
-      --st = (Proxy :: Proxy (LRTree Char), (Proxy :: Proxy (LTree Char), (Proxy :: Proxy (RTree Char), ())))
-        st = spine :: LRTree Char :-: LTree Char :-! RTree Char
-     in coerceWith st lrTree == SBr (SBr SEm 'b' SEm) 'a' (SBr SEm 'b' SEm)
+      --st0 = (Proxy :: Proxy (LRTree Char), (Proxy :: Proxy (LTree Char), (Proxy :: Proxy (RTree Char), ())))
+        st0 = spine :: LRTree Char :-: LTree Char :-! RTree Char
+        st1 = spine :: LRTree :-: LTree :-! RTree
+     in coerceWith st0 lrTree == SBr (SBr SEm 'b' SEm) 'a' (SBr SEm 'b' SEm) &&
+         coerceWith st1 lrTree == SBr (SBr SEm 'b' SEm) 'a' (SBr SEm 'b' SEm)
+
+         
 
 {-
 -- TO THINK ABOUT, when doing inlining, deeper structure on next version:

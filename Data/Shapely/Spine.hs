@@ -82,7 +82,7 @@ class SpineOf ts where
     --
     -- > sp = spine :: (Foo ':-:' Bar ':-!' Baz)
     spine :: ts
-instance (SpineOf ts, Shapely t)=> SpineOf (Proxy t, ts) where
+instance (SpineOf ts)=> SpineOf (Proxy t, ts) where -- NOTE we'd like to specify (Shapely (t ...))=>, but `t` may be partially-applied
     spine = (Proxy, spine :: ts)
 instance SpineOf () where
     spine = ()
