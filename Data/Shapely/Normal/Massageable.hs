@@ -144,7 +144,7 @@ instance ( IsAllUnique (x,xs) isTIPStyle
          , ProductToCoproduct isHeadMassageable a b (x, xs) (Either xss yss)
     )=> MassageableNormalRec a b (x,xs) (Either xss yss) where
     massageNormalRec = massageProdCoprod (undefined::isHeadMassageable)
-instance ( IsAllUnique () isTIPStyle  -- TODO THE BUG IS HERE
+instance ( IsAllUnique () isTIPStyle
          , ProductToProductPred isTIPStyle a b () xss isHeadMassageable
          , ProductToCoproduct isHeadMassageable a b () (Either xss yss)
     )=> MassageableNormalRec a b () (Either xss yss) where

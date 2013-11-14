@@ -3,24 +3,24 @@
  , FlexibleInstances, FlexibleContexts
  , OverlappingInstances -- for IsoNormal to support recursive subterms
  , UndecidableInstances -- for Isomorphic instance
- , ScopedTypeVariables  -- for Isomorphic instance (why isn't there a helper function in Data.Proxy?)
+ , FunctionalDependencies -- for IsOfBaseType
+ , ScopedTypeVariables -- for bool passing trick in 2nd IsoTerms instance
+ , PolyKinds
  #-}
 module Data.Shapely.Normal.Isomorphic
     where
+
+-- separated, again, to contain OverlappingInstances
 
 import Data.Shapely.Category
 import Data.Shapely.Classes
 import Data.Shapely.Normal.Classes
 import Data.Shapely.Utilities
+import Data.Shapely.Bool
 
-import Data.Proxy
+import Data.Shapely.Spine
 
--- TODO or name SpineTypes, or Spine
-class (Product l)=> Structure l 
-instance (Structure ts, Shapely t)=> Structure (Proxy t, ts)
-instance Structure ()
 
--- separated, again, to contain OverlappingInstances
 
 
 -- | Two types @a@ and @b@ are isomorphic, by this definition, if they have the
@@ -35,11 +35,11 @@ class (Shapely a, Shapely b)=> Isomorphic a b where
     coerce :: a -> b
 
 instance (IsomorphicWith (Proxy a,()) a b)=> Isomorphic a b where
-    coerce a = coerceWith (Proxy :: Proxy a, ()) a
+    coerce a = coerceWith (proxyTypeOf a, ()) a
 
 
 -- TODO not really Isomorphic since we can't reverse a and b and keep ts
-class (Structure ts, Shapely a, Shapely b)=> IsomorphicWith ts a b where
+class (SpineOf ts, Shapely a, Shapely b)=> IsomorphicWith ts a b where
     -- | Convert a type @a@ to an isomorphic type @b@, where the 'Proxy' types
     -- in @ts@ define the recursive structure of @a@.
     coerceWith :: ts -> a -> b
@@ -49,18 +49,12 @@ instance (Shapely a, Shapely b, IsoNormal ts (Normal a) (Normal b))=> Isomorphic
 
 -- ---------------- INTERNAL (for now)
 
-class (Structure ts)=> IsoNormal ts na nb where
+class (SpineOf ts)=> IsoNormal ts na nb where
     coerceNormalWith :: ts -> na -> nb
 
-instance (Structure ts)=> IsoNormal ts () () where
+instance (SpineOf ts)=> IsoNormal ts () () where
     coerceNormalWith _ = id
-{-
-instance (Isomorphic a b, IsoNormal a as bs)=> IsoNormal a (a,as) (b,bs) where  -- NOTE: `b` may ~ `a`
-    coerceNormalWith a' (a,as) = (coerce a, coerceNormalWith a' as)
-instance (b0 ~ b1, IsoNormal a as bs)=> IsoNormal a (b0,as) (b1,bs) where
-    coerceNormalWith = fmap . coerceNormalWith
--}
--- replace with:
+
 instance (IsoTerms ts ts x y, IsoNormal ts as bs)=> IsoNormal ts (x,as) (y,bs) where
     coerceNormalWith ts (x,as) = (coerceTermWith ts ts x, coerceNormalWith ts as)
 
@@ -68,15 +62,38 @@ instance (IsoNormal a as as', IsoNormal a bs bs')=> IsoNormal a (Either as bs) (
     coerceNormalWith a' = bimap (coerceNormalWith a') (coerceNormalWith a')
 
 
-class (Structure tsOrig, Structure tsBeingChecked)=> IsoTerms tsBeingChecked tsOrig a b where
+class (SpineOf tsOrig, SpineOf tsBeingChecked)=> IsoTerms tsBeingChecked tsOrig a b where
     coerceTermWith :: tsBeingChecked -> tsOrig -> a -> b
 
-instance (Structure tsOrig)=> IsoTerms () tsOrig a a where
+instance (SpineOf tsOrig)=> IsoTerms () tsOrig a a where
     coerceTermWith _ _ = id
 
-instance (Structure ts, IsomorphicWith tsOrig a b)=> IsoTerms (Proxy a, ts) tsOrig a b where -- note: `b` may ~ `a`
+-- THESE TWO:
+{-
+instance (SpineOf ts, IsomorphicWith tsOrig a b)=> IsoTerms (Proxy a, ts) tsOrig a b where -- note: `b` may ~ `a`
     coerceTermWith _ = coerceWith
 
-instance (Structure ts, Shapely x, IsoTerms ts tsOrig a b)=> IsoTerms (Proxy x, ts) tsOrig a b where
+instance (SpineOf ts, Shapely x, IsoTerms ts tsOrig a b)=> IsoTerms (Proxy x, ts) tsOrig a b where
     coerceTermWith = coerceTermWith . snd
+    -}
+instance (SpineOf (Proxy x, ts), SpineOf tsOrig
+         , IsOfBaseType x a bool, IsoTermFoo bool ts tsOrig a b
+         )=> IsoTerms (Proxy x, ts) tsOrig a b where
+    coerceTermWith = coerceTermWithFoo (Proxy :: Proxy bool) . snd
 
+class IsoTermFoo (bool :: *) ts tsOrig a b where
+    coerceTermWithFoo :: Proxy bool -> ts -> tsOrig -> a -> b
+
+-- a was in spine
+instance (IsomorphicWith tsOrig a b)=> IsoTermFoo True ts tsOrig a b where
+    coerceTermWithFoo _ _ = coerceWith
+-- a is not part of spine, try tail of spine list:
+instance (IsoTerms ts tsOrig a b, SpineOf ts, SpineOf tsOrig)=> IsoTermFoo False ts tsOrig a b where
+    coerceTermWithFoo _ = coerceTermWith
+
+
+class IsOfBaseType t tab (b :: *) | t tab -> b -- NOTE (b :: *) fixed same issue we're seeing in Data.Shapely.Spine.BareType
+instance IsOfBaseType t t True
+instance IsOfBaseType (t a) (t a) True
+instance (IsOfBaseType t ta bool)=> IsOfBaseType t (ta b) bool
+instance false ~ False => IsOfBaseType t x false

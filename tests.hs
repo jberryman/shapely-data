@@ -13,13 +13,14 @@ module Main
 import Data.Shapely
 import Data.Shapely.Normal as Sh
 import Data.Shapely.Normal.TypeIndexed
+import Data.Shapely.Spine
 
 import Data.Proxy
 import Control.Monad(forM)
 
 --  TODO QUESTIONS:
-    -- How does this work with polymorphic terms?
-    -- And what about in Massageable, can we do massage (:: Foo a b) :: Bar b a   ??
+    -- How does massageable work with polymorphic terms?
+    --   - can we do massage (x :: Foo a b) :: Bar b a   ??
     -- can we use the "extra method trick"?
     -- what about types like data `Fix f = f (Fix f)`
 
@@ -232,7 +233,9 @@ $(deriveShapely ''Li)
     - when child types have flipped parameters we need our Proxy list to hold all the permutations!
    SOLUTION:
     - define our own proxy types, with e.g. Px0 Px1 Px2 (up to 7?) for different aritys
-    -   - look at Typeable docs and see what the new approach to that is... kind polymorphism?
+        - or a kind-polymorphic Proxy type . Note: we can't make Shapely itself
+          kind-polymorphic because Normal must also be a function of the type's
+          parameterized variables
     - define a function proxy :: f -> Proxy f
 th_rec_pred = let a = "works" 
                   b = Co 'w' $ Co 'o' $ Co 'r' $ Co 'k' $ Co 's' $ Em
@@ -272,7 +275,8 @@ $(fmap Prelude.concat $ forM [''LRTree , ''LTree , ''RTree ] deriveShapely)
 -- test deeper recursive structure: 
 th_rec_multi_pred = 
     let lrTree = LRTop (LBr LEm 'b' REm) 'a' (RBr LEm 'b' REm)
-        st = (Proxy :: Proxy (LRTree Char), (Proxy :: Proxy (LTree Char), (Proxy :: Proxy (RTree Char), ())))
+      --st = (Proxy :: Proxy (LRTree Char), (Proxy :: Proxy (LTree Char), (Proxy :: Proxy (RTree Char), ())))
+        st = spine :: LRTree Char :-: LTree Char :-! RTree Char
      in coerceWith st lrTree == SBr (SBr SEm 'b' SEm) 'a' (SBr SEm 'b' SEm)
 
 {-
