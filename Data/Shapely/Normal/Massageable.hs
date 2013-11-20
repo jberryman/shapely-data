@@ -4,6 +4,7 @@
 {-# LANGUAGE OverlappingInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}  -- for "advanced overlap" solution
+{-# LANGUAGE EmptyDataDecls #-}
 module Data.Shapely.Normal.Massageable
     where
 

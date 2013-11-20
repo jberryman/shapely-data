@@ -12,6 +12,8 @@ Description:         This is an experimental package providing template haskell
                      This is something like light-weight Structural Typing.
                      .
                      Please send any comments along.
+                     -- WE WILL SCRAP ABOVE. HERE ARE NOTES TO INCLUDE:
+                     Library not designed to facilitate data-type generic programming, e.g. defining traversals ...
 
 Homepage:            http://brandon.si/code/shapely-data/
 
@@ -43,6 +45,7 @@ Library
   Build-depends:       base <5
                      , template-haskell >= 2 && < 3
                      , tagged
+                     , proxy-kindness == 0.1
   
   Extensions:          MultiParamTypeClasses
                      , FunctionalDependencies
