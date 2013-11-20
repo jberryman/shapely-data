@@ -224,41 +224,14 @@ $(deriveShapely ''D)
 $(deriveShapely ''E)
 $(deriveShapely ''F)
 
--- RECURSIVE:
+-- RECURSIVE: -------
 data Li = Em | Co Char Li deriving Eq
 $(deriveShapely ''Li)
 
-{- PROBLEMS: 
-    - proxy values must be monomorphic to work with coerce
-    - when child types have flipped parameters we need our Proxy list to hold all the permutations!
-   SOLUTION:
-    - define our own proxy types, with e.g. Px0 Px1 Px2 (up to 7?) for different aritys
-        - or a kind-polymorphic Proxy type . Note: we can't make Shapely itself
-          kind-polymorphic because Normal must also be a function of the type's
-          parameterized variables
-    - define a function proxy :: f -> Proxy f
 th_rec_pred = let a = "works" 
                   b = Co 'w' $ Co 'o' $ Co 'r' $ Co 'k' $ Co 's' $ Em
                in coerce a == b && coerce b == a
 
-data Simple2Tree a b = S2Br (Simple2Tree b a) a b (Simple2Tree b a)
-                     | S2Em
-                     deriving (Eq,Show)
-$(deriveShapely ''Simple2Tree)
-data LR2Tree a b = LR2Top (L2Tree b a) a b (R2Tree b a)
-                 | LR2TopEm
-data L2Tree a b = L2Br (L2Tree b a) a b (R2Tree b a)
-                | L2Em
-data R2Tree a b = R2Br (L2Tree b a) a b (R2Tree b a)
-                | R2Em
-$(fmap Prelude.concat $ forM [''LR2Tree , ''L2Tree , ''R2Tree ] deriveShapely)
-
--- test deeper recursive structure: 
-th_rec_multi_pred = 
-    let lrTree = LR2Top (L2Br (L2Br L2Em 'c' True R2Em) False 'b' R2Em) 'a' True (R2Br L2Em False 'b' R2Em)
-        st = (Proxy :: Proxy (LR2Tree a b), (Proxy :: Proxy (L2Tree a b), (Proxy :: Proxy (R2Tree a b),())))
-     in coerceWith st lrTree == S2Br (S2Br (S2Br S2Em 'c' True S2Em) False 'b' S2Em) 'a' True (S2Br S2Em False 'b' S2Em)
--}
 
 data SimpleTree a = SBr (SimpleTree a) a (SimpleTree a)
                      | SEm
@@ -281,6 +254,29 @@ th_rec_multi_pred =
      in coerceWith st0 lrTree == SBr (SBr SEm 'b' SEm) 'a' (SBr SEm 'b' SEm) &&
          coerceWith st1 lrTree == SBr (SBr SEm 'b' SEm) 'a' (SBr SEm 'b' SEm)
 
+
+-- These demonstrate the need for parameter-agnostic spine elements: our type
+-- is recursive, with the paramters flip-flopping. Lots of other examples.
+data Simple2Tree a b = S2Br (Simple2Tree b a) a b (Simple2Tree b a)
+                     | S2Em
+                     deriving (Eq,Show)
+$(deriveShapely ''Simple2Tree)
+data LR2Tree a b = LR2Top (L2Tree b a) a b (R2Tree b a)
+                 | LR2TopEm
+data L2Tree a b = L2Br (L2Tree b a) a b (R2Tree b a)
+                | L2Em
+data R2Tree a b = R2Br (L2Tree b a) a b (R2Tree b a)
+                | R2Em
+$(fmap Prelude.concat $ forM [''LR2Tree , ''L2Tree , ''R2Tree ] deriveShapely)
+
+-- test deeper recursive structure: 
+th_rec_multi_parameter_agnostic_pred = 
+    let lrTree = LR2Top (L2Br (L2Br L2Em 'c' True R2Em) False 'b' R2Em) 'a' True (R2Br L2Em False 'b' R2Em)
+        st = spine :: LR2Tree :-: L2Tree :-! R2Tree
+        -- this avoids enumerating a/b, b/a variants for all types:
+        -- st = spine :: LR2Tree Char Bool :-: L2Tree Char Bool :-: R2Tree Char Bool :-: 
+        --                LR2Tree Bool Char :-: L2Tree Bool Char :-! R2Tree Bool Char
+     in coerceWith st lrTree == S2Br (S2Br (S2Br S2Em 'c' True S2Em) False 'b' S2Em) 'a' True (S2Br S2Em False 'b' S2Em)
          
 
 {-

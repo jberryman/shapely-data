@@ -24,9 +24,9 @@ import Data.Shapely.Classes
 
 
 proxyTypeOf :: a -> Proxy a
-proxyTypeOf _ = Proxy
+proxyTypeOf = return
 
--- TODO: or name "Bare" -> "Stripped"?
+-- TODO: or name "Bare" -> "Stripped"? NO: "Unapply"
 
 -- | Return a 'Proxy' value for type @tab@ with all of the parameters stripped
 -- off, e.g.
