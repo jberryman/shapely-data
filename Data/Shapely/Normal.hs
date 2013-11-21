@@ -56,11 +56,14 @@ import qualified Prelude
 
 
 -- TODO:
+--      - add dependency on proxy-kindness and factor out
+--      - implement FunctorOn
 --      - finish implementing TH stuff, derive instances for all built-in types
 --      - fix Concatable/Appendable, add better Monoidal class
 --      - make sure we know exactly how OverlappingInstances and
 --        UndecidableInstances are working and that they're safe here
 --      - check if some of our type families can make use of coincident overlap, to make more things reducuble and simplify constraints:
+--          - also in Shapely.Bool module
 --           http://typesandkinds.wordpress.com/2013/04/29/coincident-overlap-in-type-families/
 --      - create a length-indexed list (opaque for safety) that is, perhaps
 --        Foldable/Traversable and can be converted from and back into a Product.
@@ -76,12 +79,9 @@ import qualified Prelude
 --      - finalize exports, modules, finish cabal file w/ proper docs & motivation
 --
 --   v0.2:
---      - move to closed type families, look at replacing OverlappingInstances with these by using families for type equality
---          - make Normal canonical (not recursive)
---          - create a NormalR class for direct recursive types,make massage, coerce, etc. use NormalR
---              - or maybe make `to :: a -> (SpineWithTypes (a,()) (Normal a))`, (keeping `constructors` working same w/r/t Normal)
---          - use `data Spine tps a = Spine (SpineWithTypes tps (Normal a))` (or something) for spine structure
---          - replace Rec with `type Rec a = Spine (Proxy a,()) a`
+--      - move to closed type families, look at replacing OverlappingInstances
+--        with these by using families for type equality
+--          - use closed type fams in proxy-kindness too
 --      - use some scheme to close type classes (maybe closed type fams will help)
 --      - freeze 'massage' behavior
 --      - support inlining, and "templates" defining structure. Have NormalR use this
@@ -90,13 +90,18 @@ import qualified Prelude
 --          - incorporate TypeNat stuff (for specifying length and constructor number)
 --
 --    sometime:
+--      - read up about "row types"
 --      - see if where and if we can make interesting use of DataKinds
---          - replacing didactic classes with "kindly-typed" structures
+--          - replacing didactic classes with "kindly-typed" structures?
 --      - read "Small induction recursion..." paper
 --      - check out "multirec" approach to recursive structure, and http://mainisusuallyafunction.blogspot.com/2010/12/type-level-fix-and-generic-folds.html
+--      - consider some scheme (from proxy-kindness) for optionally "guarding"
+--         ambiguous/polymorphic terms coming from parameterized types in
+--         functions that make use of type equality (e.g. massage)
 --
 -- OTHER FUNCTIONS:
 --   
+--   - straighten :: e.g. ((a,b),(c,(d,e))) -> (a,(b,(c,(d,(e,()))))) -- requires closed type family (or overlapping instances)
 --   - factor & distribute, (+ type-indexed variants)
 --   - a recursive, monoid-style `zipWith` (i.e. an `mappend` that does something useful recursively)?
 --
