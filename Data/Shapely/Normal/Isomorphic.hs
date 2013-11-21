@@ -5,7 +5,7 @@
  , UndecidableInstances -- for Isomorphic instance
  , FunctionalDependencies -- for IsOfBaseType
  , ScopedTypeVariables -- for bool passing trick in 2nd IsoTerms instance
- , PolyKinds
+ , PolyKinds, DataKinds
  #-}
 module Data.Shapely.Normal.Isomorphic
     where
@@ -19,6 +19,7 @@ import Data.Shapely.Utilities
 import Data.Shapely.Bool
 
 import Data.Shapely.Spine
+import Data.Proxy.Kindness
 
 
 
@@ -34,8 +35,10 @@ class (Shapely a, Shapely b)=> Isomorphic a b where
     -- supporting direct recursion.
     coerce :: a -> b
 
-instance (IsomorphicWith (Proxy a,()) a b)=> Isomorphic a b where
-    coerce a = coerceWith (proxyTypeOf a, ()) a
+-- | We use 'Unapplied' to recurse on all occurrences of the base type @t@,
+-- regardless of its parameters.
+instance (Unapplied (Proxy txy) t, IsomorphicWith (Proxy t,()) txy b)=> Isomorphic txy b where
+    coerce a = coerceWith (unappliedOf a, ()) a
 
 
 -- TODO not really Isomorphic since we can't reverse a and b and keep ts
@@ -81,7 +84,8 @@ instance (SpineOf (Proxy x, ts), SpineOf tsOrig
          )=> IsoTerms (Proxy x, ts) tsOrig a b where
     coerceTermWith = coerceTermWithFoo (Proxy :: Proxy bool) . snd
 
-class IsoTermFoo (bool :: *) ts tsOrig a b where
+--TODO name
+class IsoTermFoo (bool :: Bool) ts tsOrig a b where
     coerceTermWithFoo :: Proxy bool -> ts -> tsOrig -> a -> b
 
 -- a was in spine
@@ -91,9 +95,3 @@ instance (IsomorphicWith tsOrig a b)=> IsoTermFoo True ts tsOrig a b where
 instance (IsoTerms ts tsOrig a b, SpineOf ts, SpineOf tsOrig)=> IsoTermFoo False ts tsOrig a b where
     coerceTermWithFoo _ = coerceTermWith
 
-
-class IsOfBaseType t tab (b :: *) | t tab -> b -- NOTE (b :: *) fixed same issue we're seeing in Data.Shapely.Spine.BareType
-instance IsOfBaseType t t True
-instance IsOfBaseType (t a) (t a) True
-instance (IsOfBaseType t ta bool)=> IsOfBaseType t (ta b) bool
-instance false ~ False => IsOfBaseType t x false

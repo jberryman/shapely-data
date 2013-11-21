@@ -1,6 +1,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TemplateHaskell #-}
+
 module Main
     where
 
@@ -277,7 +278,37 @@ th_rec_multi_parameter_agnostic_pred =
         -- st = spine :: LR2Tree Char Bool :-: L2Tree Char Bool :-: R2Tree Char Bool :-: 
         --                LR2Tree Bool Char :-: L2Tree Bool Char :-! R2Tree Bool Char
      in coerceWith st lrTree == S2Br (S2Br (S2Br S2Em 'c' True S2Em) False 'b' S2Em) 'a' True (S2Br S2Em False 'b' S2Em)
-         
+
+-- 'coerce' should handle regular recursion with parameter shuffling, because
+-- it uses Unapplied:
+data RegRecParams1 a b = RRPCons1 a b (RegRecParams1 b a) | RRPNil1 deriving (Eq,Show)
+data RegRecParams2 a b = RRPCons2 a b (RegRecParams2 b a) | RRPNil2 deriving (Eq,Show)
+$(fmap Prelude.concat $ forM [''RegRecParams1, ''RegRecParams2] deriveShapely)
+
+th_rec_reg_param_swapping_coerce_pred = 
+    (coerce $ RRPCons1 'a' True RRPNil1) == RRPCons2 'a' True RRPNil2
+
+
+-- POLYMORPHISM/INFERRENCE-PRESERVING STUFF WE MIGHT LIKE TO SUPPORT SOMEHOW
+-- ------------------------------
+-- TODO test these after sprucing up type funcs with incidental overlapping instances
+{-
+th_rec_reg_param_swapping_coerce_pred = 
+    (coerce RRPNil1) == (RRPNil2 :: RegRecParams2 Char Bool)
+
+th_rec_reg_poly_param_swapping_coerce_pred = 
+    let (x,y) = (RRPNil1,coerce x) :: (RegRecParams1 a b, RegRecParams2 a b)
+     in y == RRPNil2
+    -- But note: this is also (at the top level) ambiguous:
+    -- foo = RRPNil2 == RRPNil2
+
+th_rec_reg_poly_param_swapping_coerce_pred :: (RegRecParams1 a b, RegRecParams2 a b)
+th_rec_reg_poly_param_swapping_coerce_pred = 
+    let (x,y) = (RRPNil1, coerce x) 
+     in (x,y)
+-}
+
+
 
 {-
 -- TO THINK ABOUT, when doing inlining, deeper structure on next version:

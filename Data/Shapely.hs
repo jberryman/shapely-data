@@ -21,6 +21,11 @@ module Data.Shapely (
   - While all classes except 'Shapely' are considered closed, we don't do any
     tricks to enforce that in the API yet.
 
+  - In fancier functions that use type equality (e.g. 'coerce'), types need to
+    be unambiguous so type signatures are sometimes required.
+
+  - type errors can be cryptic
+
   - Performance hasn't been tested at all yet.
 
  -}

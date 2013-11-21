@@ -1,5 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses , FlexibleInstances, FunctionalDependencies , FlexibleContexts , TypeFamilies
-  , OverlappingInstances , UndecidableInstances #-}
+  , OverlappingInstances , UndecidableInstances 
+  , DataKinds  -- for True/False
+  #-}
 module Data.Shapely.Normal.TypeIndexed (
       HasAny(..)
     , viewType , viewTypeOf
@@ -27,7 +29,7 @@ import Data.Shapely.Classes
 
 -- We borrow this type-equality comparison trick from Oleg: 
 --   http://okmij.org/ftp/Haskell/ConEQ.hs
-class HasAny a l b | a l -> b
+class HasAny a l (b::Bool) | a l -> b
 
 instance HasAny a (a,l) True
 instance (HasAny a l b)=> HasAny a (x,l) b

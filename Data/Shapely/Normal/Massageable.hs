@@ -1,10 +1,13 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances,FunctionalDependencies #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE OverlappingInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE ScopedTypeVariables #-}  -- for "advanced overlap" solution
-{-# LANGUAGE EmptyDataDecls #-}
+{-# LANGUAGE 
+    MultiParamTypeClasses, FlexibleInstances, FunctionalDependencies
+  , TypeFamilies
+  , UndecidableInstances 
+  , OverlappingInstances
+  , FlexibleContexts
+  , ScopedTypeVariables      -- for "advanced overlap" solution
+  , EmptyDataDecls 
+  , DataKinds  -- for True/False
+  #-}
 module Data.Shapely.Normal.Massageable
     where
 
@@ -16,6 +19,7 @@ import Data.Shapely.Category(swapFront)
 import Data.Shapely.Utilities
 
 import Control.Arrow((***))
+import Data.Proxy
 
 -- An internal module mostly to keep use of OverlappingInstances isolated
 
@@ -40,7 +44,7 @@ import Control.Arrow((***))
 -- combining the "functional" class with the predicate class. True instances
 -- have real working method instances, and False instances never make it past
 -- the typechecker.
-class TypeIndexPred a l l' b | a l -> l', a l l' -> b where
+class TypeIndexPred a l l' (b::Bool) | a l -> l', a l l' -> b where
     -- pull the only value of type 'a' out of 'l' yielding 'l''
     viewType :: l -> (a,l')
     viewType = error "viewType: Method called in False predicate instance"
@@ -58,7 +62,7 @@ instance (False ~ false, Void ~ void)=> TypeIndexPred a () void false
 instance HasAny a Void False
 
 
-class IsAllUnique x b | x -> b
+class IsAllUnique x (b::Bool) | x -> b
 instance (true ~ True)=> IsAllUnique () true
 instance (IsAllUnique xs tailUnique
          , HasAny x xs xInXs
@@ -81,7 +85,7 @@ class MassageableNormal x y where
     massageNormal :: x -> y
 
 instance (MassageableNormalRec FLAT FLAT x y)=> MassageableNormal x y where
-    massageNormal = massageNormalRec (FLAT,FLAT)
+    massageNormal = massageNormalRec (Proxy :: Proxy FLAT, Proxy :: Proxy FLAT)
 
 -- | /DISCLAIMER: this function is experimental (although it should be correct) and the behavior may change in the next version, based on user feedback. Please see list of limitations below and send feedback if you have any./
 --
@@ -125,7 +129,7 @@ class Massageable a b where
 instance (Shapely a, Shapely b
          , MassageableNormalRec a b (Normal a) (Normal b)
          )=> Massageable a b where
-    massage a = let b = massageNormalRec (undefined `asTypeOf` a, undefined `asTypeOf` b) $$ a
+    massage a = let b = massageNormalRec (return a, return b) $$ a
                  in b
 
 
@@ -134,7 +138,7 @@ instance (Shapely a, Shapely b
 
 class MassageableNormalRec pa pb na nb where
     -- keep method hidden:
-    massageNormalRec :: (pa, pb)  -- proxies for 'a' and 'b' to support recursion
+    massageNormalRec :: (Proxy pa, Proxy pb)  -- proxies for 'a' and 'b' to support recursion
                      -> na -> nb  -- (Normal a) is massaged to (Normal b)
 
 instance (MassageableNormalRec a b s t, MassageableNormalRec a b ss t)=> MassageableNormalRec a b (Either s ss) t where
@@ -144,43 +148,43 @@ instance ( IsAllUnique (x,xs) isTIPStyle
          , ProductToProductPred isTIPStyle a b (x,xs) xss isHeadMassageable
          , ProductToCoproduct isHeadMassageable a b (x, xs) (Either xss yss)
     )=> MassageableNormalRec a b (x,xs) (Either xss yss) where
-    massageNormalRec = massageProdCoprod (undefined::isHeadMassageable)
+    massageNormalRec = massageProdCoprod (Proxy::Proxy isHeadMassageable)
 instance ( IsAllUnique () isTIPStyle
          , ProductToProductPred isTIPStyle a b () xss isHeadMassageable
          , ProductToCoproduct isHeadMassageable a b () (Either xss yss)
     )=> MassageableNormalRec a b () (Either xss yss) where
-    massageNormalRec = massageProdCoprod (undefined::isHeadMassageable)
+    massageNormalRec = massageProdCoprod (Proxy::Proxy isHeadMassageable)
 
 instance ( Product xs, Product ys
          , IsAllUnique xs isTIPStyle
          -- Only "real" instances of ProductToProductPred will typecheck:
          , ProductToProductPred isTIPStyle a b xs ys True
     )=> MassageableNormalRec a b xs ys where
-    massageNormalRec ab = massageProdProd (undefined::isTIPStyle, ab)
+    massageNormalRec ab = massageProdProd (Proxy::Proxy isTIPStyle, ab)
 
 alsoMassage :: (Shapely pa, Shapely pb
-            )=> MassageableNormalRec pa pb (Normal pa) (Normal pb)=> (pa,pb) -> pa -> pb
+            )=> MassageableNormalRec pa pb (Normal pa) (Normal pb)=> (Proxy pa,Proxy pb) -> pa -> pb
 alsoMassage ab a = massageNormalRec ab $$ a
 
 
 ------------------------------------------------------------------------------
 -- MASSAGING PRODUCTS TO COPRODUCTS
 
-class ProductToCoproduct isHeadMassageable pa pb s t where
-    massageProdCoprod :: isHeadMassageable -> (pa,pb) -> s -> t
+class ProductToCoproduct (isHeadMassageable::Bool) pa pb s t where
+    massageProdCoprod :: Proxy isHeadMassageable -> (Proxy pa, Proxy pb) -> s -> t
 
 instance ( IsAllUnique xss isTIPStyle
          , ProductToProductPred isTIPStyle pa pb xss xs True
          -- insist unambiguous, else fail typechecking:
          , AnyMassageable pa pb xss ys False
          )=> ProductToCoproduct True pa pb xss (Either xs ys) where
-    massageProdCoprod _ ab = Left . massageProdProd (undefined :: isTIPStyle,ab)
+    massageProdCoprod _ ab = Left . massageProdProd (Proxy :: Proxy isTIPStyle,ab)
 
 instance (MassageableNormalRec pa pb yss ys)=> ProductToCoproduct False pa pb yss (Either xs ys) where
     massageProdCoprod _ ab = Right . massageNormalRec ab
 
 -- helper predicate class:
-class AnyMassageable pa pb xss yss b | pa pb xss yss -> b
+class AnyMassageable pa pb xss yss (b :: Bool) | pa pb xss yss -> b
 instance ( IsAllUnique xss isTIPStyle
          , ProductToProductPred isTIPStyle pa pb xss xs headMassageable
          , AnyMassageable pa pb xss ys anyTailMassageable
@@ -196,8 +200,8 @@ instance ( IsAllUnique xss isTIPStyle
 
 -- combination Predicate/functional class. "False" instances are defined where we
 -- would normally have not defined an instance.
-class ProductToProductPred isTIPStyle pa pb s t b | isTIPStyle pa pb s t -> b where
-    massageProdProd :: (isTIPStyle, (pa,pb)) -> s -> t
+class ProductToProductPred (isTIPStyle::Bool) pa pb s t (b::Bool) | isTIPStyle pa pb s t -> b where
+    massageProdProd :: (Proxy isTIPStyle, (Proxy pa, Proxy pb)) -> s -> t
     massageProdProd = error "massageProdProd: Method called in False predicate instance"
 
 ------------ INSTANCES: ------------
