@@ -86,7 +86,7 @@ type instance () :> x = (x,())
 type instance (x0,xs) :> x = (x0, xs :> x)
 
 type instance Either x0 xs :> x = Either x0 (Tail (Either x0 xs) :> x)
-type instance Only a :> b = Either a b -- TODO: insist on two instances for: b ~ () and b ~ (x,y)?
+type instance Only a :> b = Either a b
 
 
 

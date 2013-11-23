@@ -56,18 +56,19 @@ import qualified Prelude
 
 
 -- TODO:
---      - add dependency on proxy-kindness and factor out
---      - implement FunctorOn
---      - finish implementing TH stuff, derive instances for all built-in types
 --      - fix Concatable/Appendable, add better Monoidal class
---      - make sure we know exactly how OverlappingInstances and
---        UndecidableInstances are working and that they're safe here
---      - check if some of our type families can make use of coincident overlap, to make more things reducuble and simplify constraints:
---          - also in Shapely.Bool module
---           http://typesandkinds.wordpress.com/2013/04/29/coincident-overlap-in-type-families/
+--      - implement FunctorOn
 --      - create a length-indexed list (opaque for safety) that is, perhaps
 --        Foldable/Traversable and can be converted from and back into a Product.
 --        Maybe replace toList with Foldable.toList
+--
+--      - look into type families w/ coincident overlap for SHapely.Bool module
+--           http://typesandkinds.wordpress.com/2013/04/29/coincident-overlap-in-type-families/
+--           - also try to see if / where this might improve inferrence
+--      - make sure we know exactly how OverlappingInstances and
+--        UndecidableInstances are working and that they're safe here
+--          - double check all uses (remove / recompile / assess)
+--      - derive Shapely instances for all built-in types
 --      - documentation:
 --          - make note about plans for AlsoNormal on that constructor
 --          - fix 'limitations' section
@@ -90,6 +91,7 @@ import qualified Prelude
 --          - incorporate TypeNat stuff (for specifying length and constructor number)
 --
 --    sometime:
+--      - function that does a series expansion (up to _nth) of a recursive type
 --      - read up about "row types"
 --      - see if where and if we can make interesting use of DataKinds
 --          - replacing didactic classes with "kindly-typed" structures?
@@ -277,6 +279,9 @@ instance (Shiftable (Either y zs)
 --            arrow a.la list comprehensions?
 --       make room for a "multiply" function for products and coproducts. 
 --          - NOTE: cartesian product of coproducts
+--          - Then also consider making (|>) follow the Monoidal style and also
+--             work on coproducts (this is multiplication)
+--              - then also look at the :> type function...
 --
 
 -- | A @(++)@-like append operation on 'Product's and 'Coproduct's. See also
