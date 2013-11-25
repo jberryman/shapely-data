@@ -29,7 +29,7 @@ compatibility issues when this module is improved.
  -- , Appendable(..)
  -- , Concatable(..)
     -- ** Fanned Application
-    , Fans(..)
+    , Fans(..), (:=>->), (:->=>)
     , constructorsOfNormal
     -- ** Convenience Type synonyms
     , (:*:), (:*!), (:+:)
@@ -70,6 +70,7 @@ import qualified Prelude
 --      - consider renaming of all
 --      - look over notes again, see if we missed anything
 --      - fix Concatable/Appendable, add better Monoidal class
+--      - add in unicode math stuff in docs.
 --      - see about any '*As' variants that might be useful, for type inferrence
 --      - implement FunctorOn
 --      - create a length-indexed list (opaque for safety) that is, perhaps
@@ -369,7 +370,7 @@ x <! y = (x,(y,()))
 -- See also 'constructorsOf'. E.g.
 --
 -- > constructorsOfNormal ('a',('b',())) 'x' 'y'  ==  ('x',('y',()))
-constructorsOfNormal :: (Fans r r)=> r -> (r :=>-> r)
+constructorsOfNormal :: (Fans r)=> r -> (r :=>-> r)
 constructorsOfNormal r = unfanin (id . (`asTypeOf` r))
 
 

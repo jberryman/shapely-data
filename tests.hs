@@ -19,6 +19,8 @@ import Data.Shapely.Spine
 import Data.Proxy
 import Control.Monad(forM)
 
+-- TODO: why did we start saying "*_pred" ? Rename "test_*" and some TH to gather all of them in `main`
+
 --  TODO QUESTIONS:
     -- How does massageable work with polymorphic terms?
     --   - can we do massage (x :: Foo a b) :: Bar b a   ??

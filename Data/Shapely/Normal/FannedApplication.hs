@@ -8,25 +8,32 @@ module Data.Shapely.Normal.FannedApplication
 import Data.Shapely.Normal.Classes
 import Control.Arrow((&&&))
 
--- TODO: leave `r` out of instance head and move type funcs out?
+type family abc :=>-> r
+type family r :->=> abc
+    
+type instance () :=>-> r = r
+type instance (a,bs) :=>-> r = a -> bs :=>-> r
+type instance Either a bs :=>-> r = (a :=>-> r, AsTail bs :=>-> r)
+type instance Only a :=>-> r = (a :=>-> r, ())
+
+type instance r :->=> () = ()
+type instance r :->=> (a,bs) = (r -> a, r :->=> bs) 
+type instance r :->=> Either a bs = Either (r :->=> a) (r :->=> bs) -- NOTE: WRONG!
+type instance r :->=> Only a = r :->=> a
 
 -- | A class for arrows between a 'Product' or 'Coproduct' @abc@ and any type @r@. 
-class Fans abc r where
+class Fans abc where
     -- | A structure capable of consuming the terms @abc@ and producing @r@.
-    type abc :=>-> r
     fanin :: (abc :=>-> r) -> (abc -> r)
     unfanin :: (abc -> r) -> (abc :=>-> r)
 
     -- | A structure capable of producing the terms @abc@ from @r@
-    type r :->=> abc
     fanout :: (r :->=> abc) -> (r -> abc)
 
-instance Fans () r where
-    type () :=>-> r = r
+instance Fans () where
     fanin = const
     unfanin f = f ()
 
-    type r :->=> () = ()
     fanout = const
 
 -- | [@fanin@] an n-ary @uncurry@ 
@@ -38,12 +45,10 @@ instance Fans () r where
 -- Examples:
 --
 -- > fanin (+) (1,(2,())) == 3
-instance (Fans bs r)=> Fans (a,bs) r where
-    type (a,bs) :=>-> r = a -> bs :=>-> r
+instance (Fans bs)=> Fans (a,bs) where
     fanin f = uncurry (fanin . f)
     unfanin f = unfanin . curry f
     
-    type r :->=> (a,bs) = (r -> a, r :->=> bs) 
     fanout (f,fs) = f &&& fanout fs
 
 -- | [@fanin@] an n-ary @(|||)@
@@ -58,23 +63,19 @@ instance (Fans bs r)=> Fans (a,bs) r where
 -- >  in fanin ((+1), (3, (foldr (+), ()))) s  ==  15
 --
 -- > fanout (Left ((+1),()) :: Either (Int -> Int,()) (Int -> Bool,())) 1  ==  Left (2,())
-instance (EitherTail bs, Fans bs r, Fans (AsTail bs) r, Fans a r)=> Fans (Either a bs) r where
-    type Either a bs :=>-> r = (a :=>-> r, AsTail bs :=>-> r)
+instance (EitherTail bs, Fans bs, Fans (AsTail bs), Fans a)=> Fans (Either a bs) where
     fanin (f,fs) = eitherTail (fanin f) (fanin fs)
     unfanin f = (unfanin (f . Left), unfanin (f . Right . fromTail))
     
     -- NOTE: no eitherTail necessary (or possible) here:
-    type r :->=> Either a bs = Either (r :->=> a) (r :->=> bs)
     fanout = either ((Left .) . fanout) ((Right .) . fanout) 
 
-instance (Fans a r)=> Fans (Only a) r where
-    type Only a :=>-> r = (a :=>-> r, ())
+instance (Fans a)=> Fans (Only a) where
     fanin (f,()) = fanin f . just
     unfanin f = (unfanin (f . Only), ())
     
     -- TODO consider hiding Only constructor, and then maybe we don't have to define this, or maybe we can make instances that are nonsensical, but work recursively
     -- NOTE: we don't even use this recursively:
-    type r :->=> Only a = r :->=> a
     fanout f = Only . fanout f
 
 
