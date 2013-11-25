@@ -110,7 +110,6 @@ test_toList = Sh.toList (1,(2,(3,()))) == [1,2,3]
 -- CARTESIAN-ESQUE
 test_fanout_prod = fanout (head,(tail,(length,()))) [1..3] == (1,([2,3],(3,())))
 
-test_fanout_coprod = fanout (Right $ Left ((+1),(const 'a',())) ) 1  ==  (Right (Left (2,('a',()))) :: Either (Bool,()) (Either (Int,(Char,()))  ()))
 
 -- test of inferrence convenience:
 test_replicate = (3  ==) $ (\(x,(y,(z,())))-> x+y+z) $ Sh.replicate 1

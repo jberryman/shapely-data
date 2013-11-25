@@ -28,9 +28,6 @@ compatibility issues when this module is improved.
     , viewr
  -- , Appendable(..)
  -- , Concatable(..)
-    -- ** Fanned Application
-    , Fans(..), (:=>->), (:->=>)
-    , constructorsOfNormal
     -- ** Convenience Type synonyms
     , (:*:), (:*!), (:+:)
 
@@ -46,6 +43,15 @@ compatibility issues when this module is improved.
     , MassageableNormal(..)
 
     -- * Algebraic
+    
+    -- ** Exponentiation
+    -- | In the algebra of algebraic datatypes, @(->)@ is analogous to
+    -- exponentiation, where @b^a (TODO notation) == (a -> b). Lots of useful
+    -- and simple functions fall out from simply translating the algebraic laws
+    -- of exponents to haskell.
+    , Exponent(..), (:=>->), Base(..), (:->=>)
+    , constructorsOfNormal
+
     -- ** Constants
     -- | 'Coproduct's of the unit type represent constants at the type level,
     -- and their values are ordinal numbers, representing position.
@@ -56,7 +62,7 @@ import Data.Shapely.Category
 import Data.Shapely.Normal.Classes
 import Data.Shapely.Classes
 import Data.Shapely.Normal.Massageable
-import Data.Shapely.Normal.FannedApplication
+import Data.Shapely.Normal.Exponentiation
 import Control.Applicative() -- Functor instances for (,) and Either
 
 import Prelude hiding (replicate,concat,reverse, map)
@@ -370,7 +376,7 @@ x <! y = (x,(y,()))
 -- See also 'constructorsOf'. E.g.
 --
 -- > constructorsOfNormal ('a',('b',())) 'x' 'y'  ==  ('x',('y',()))
-constructorsOfNormal :: (Fans r)=> r -> (r :=>-> r)
+constructorsOfNormal :: (Exponent r)=> r -> (r :=>-> r)
 constructorsOfNormal r = unfanin (id . (`asTypeOf` r))
 
 
