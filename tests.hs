@@ -38,12 +38,13 @@ p = 1 <| 'a' <! True
 test_constructorsOfNormal_prod = constructorsOfNormal ('a',('b',())) 'x' 'y'  ==  ('x',('y',()))
 
 -- CONCATABLE
+{-
 concated_p :: (Int,(Char,(Bool,(Int,(Char,(Bool,()))))))
 concated_p = Sh.concat (p, (p, ()))
 
 test_concated_s = ( Sh.concat $ (Right s  :: Either (Either (Int,()) (Either (Char,()) (Bool,())))  (Either (Int,()) (Either (Char,()) (Bool,(String,())))) ) )
                     == Right (Right (Right (Right (Right (True,("true",()))))))
-
+-}
 
 -- REVERSABLE
 s_rev :: Either (Bool,(String,())) (Either (Char,()) (Int,()))
@@ -87,6 +88,7 @@ test_unfanin_coprod =
 
 
 -- APPEND
+{-
 appended :: (Int,(Char,(Bool,(Int,(Char,(Bool,()))))))
 appended = p .++. p
 
@@ -98,6 +100,7 @@ appended_s
 appended_s = let s_ss = (Right s) :: Either ( Either (Char,()) (Int,()) )  ( Either (Int,()) (Either (Char,()) (Bool,(String,()))) )
               in append s_ss
                   --  == Right (Right (Right (Right (True,()))))
+-}
 
 -- Homogeneous
 test_toList = Sh.toList (1,(2,(3,()))) == [1,2,3]

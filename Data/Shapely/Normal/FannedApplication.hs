@@ -8,6 +8,8 @@ module Data.Shapely.Normal.FannedApplication
 import Data.Shapely.Normal.Classes
 import Control.Arrow((&&&))
 
+-- TODO: leave `r` out of instance head and move type funcs out?
+
 -- | A class for arrows between a 'Product' or 'Coproduct' @abc@ and any type @r@. 
 class Fans abc r where
     -- | A structure capable of consuming the terms @abc@ and producing @r@.

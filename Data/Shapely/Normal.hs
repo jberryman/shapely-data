@@ -26,8 +26,8 @@ compatibility issues when this module is improved.
     , Reversable(..)
     , Shiftable(..)
     , viewr
-    , Appendable(..)
-    , Concatable(..)
+ -- , Appendable(..)
+ -- , Concatable(..)
     -- ** Fanned Application
     , Fans(..)
     , constructorsOfNormal
@@ -38,10 +38,18 @@ compatibility issues when this module is improved.
     , List(..)
     , Extract(..)
     -- ** Composition & Construction Convenience Operators
-    , (.++.), (|>), (<|), (<!)
+    -- TODO: add singleton :: a -> (a,())
+ -- , (.++.)
+    , (|>), (<|), (<!)
 
     -- * Product and Coproduct Conversions
     , MassageableNormal(..)
+
+    -- * Algebraic
+    -- ** Constants
+    -- | 'Coproduct's of the unit type represent constants at the type level,
+    -- and their values are ordinal numbers, representing position.
+  --, _1st, _2nd, _3rd, _4th, _5th, _6th, _7th, _8th, _9th, _last --TODO or _1, _2, ... or _1th, _2th, etc
     ) where
 
 import Data.Shapely.Category
@@ -56,7 +64,13 @@ import qualified Prelude
 
 
 -- TODO:
+--      - comment concatable/appendable
+--      - look at which functions are algebraic, re-order, put under -- * Algebraic heading
+--      - add missing functions
+--      - consider renaming of all
+--      - look over notes again, see if we missed anything
 --      - fix Concatable/Appendable, add better Monoidal class
+--      - see about any '*As' variants that might be useful, for type inferrence
 --      - implement FunctorOn
 --      - create a length-indexed list (opaque for safety) that is, perhaps
 --        Foldable/Traversable and can be converted from and back into a Product.
@@ -70,7 +84,7 @@ import qualified Prelude
 --          - double check all uses (remove / recompile / assess)
 --      - derive Shapely instances for all built-in types
 --      - documentation:
---          - make note about plans for AlsoNormal on that constructor
+--          - notes about Algebraic stuff
 --          - fix 'limitations' section
 --          - make a note about future plans for inlining.
 --      - implement thorough tests for 'massage', and TH-derived stuff.
@@ -160,7 +174,7 @@ type (x :*! y) = (x,(y,()))
 viewr :: (Symmetric (->) p, Shiftable t, ShiftedR t ~ p a b) => t -> p b a
 viewr = swap . shiftr
 
-
+{-
 -- TODO: or name this class "higher-order normal" or something?
 --       we should be able to do 'append' here with a match on ((x,xs),xss) .. ((),xss)... etc.
 -- | Class for flattening a 'Product' of 'Product's, or a nested sum of
@@ -197,7 +211,7 @@ instance (Concatable ess, Appendable (Either x ys) (Concated ess)
     )=> Concatable (Either (Either x ys) ess) where
     type Concated (Either (Either x ys) ess) = Either x ys :++: Concated ess
     concat = append . fmap concat
-
+-}
 
 
 -- | Reversing 'Products' and 'Coproduct's
@@ -284,6 +298,8 @@ instance (Shiftable (Either y zs)
 --              - then also look at the :> type function...
 --
 
+{-
+
 -- | A @(++)@-like append operation on 'Product's and 'Coproduct's. See also
 -- ('.++.'). e.g.
 --
@@ -322,6 +338,8 @@ infixr 5 .++.
 -- > (.++.) = curry append
 (.++.) :: (Product xs, Product ys, Appendable xs ys)=> xs -> ys -> xs :++: ys
 (.++.) = curry append
+-}
+
 
 infixl 5 |>
 infixr 5 <| 
