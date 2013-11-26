@@ -33,7 +33,6 @@ compatibility issues when this module is improved.
 
     -- * Operations on Products
     , List(..)
-    , Extract(..)
     -- ** Composition & Construction Convenience Operators
     -- TODO: add singleton :: a -> (a,())
  -- , (.++.)
@@ -43,6 +42,10 @@ compatibility issues when this module is improved.
     , MassageableNormal(..)
 
     -- * Algebraic
+
+    -- ** Factoring and Distributing
+    , extract
+    , FactorPrefix(..)
     
     -- ** Exponentiation
     -- | In the algebra of algebraic datatypes, @(->)@ is analogous to
@@ -53,8 +56,7 @@ compatibility issues when this module is improved.
     , constructorsOfNormal
 
     -- ** Constants
-    -- | 'Coproduct's of the unit type represent constants at the type level,
-    -- and their values are ordinal numbers, representing position.
+  --, Constant(..)
   --, _1st, _2nd, _3rd, _4th, _5th, _6th, _7th, _8th, _9th, _last --TODO or _1, _2, ... or _1th, _2th, etc
     ) where
 
@@ -404,7 +406,7 @@ instance (List a as)=> List a (a,as) where
     replicate a = (a,replicate a)
 
 
-
+{-
 -- | Extract the value from a homogeneous sum.
 --
 -- See also 'replicate' for 'Product's.
@@ -417,3 +419,48 @@ instance (Product a)=> Extract a (Only a) where
 
 instance (EitherTail as, Extract a (AsTail as))=> Extract a (Either a as) where
     extract = eitherTail id extract
+-}
+
+-- | Factor out and return the 'Product' from a homogeneous 'Coproduct'. An
+-- n-ary @codiag@.
+--
+-- See also 'replicate' for 'Product's.
+--
+-- > extract = fst . factorPrefix
+extract :: (FactorPrefix t (Either t ts), Constant (Either t ts :/ t))=> Either t ts -> t
+extract = fst . factorPrefix
+
+-- | A 'Product' or 'Coproduct' @abcs@ out of which we can factor the product
+-- @ab@, leaving some quotient.
+class (Product ab)=> FactorPrefix ab abcs where
+    -- | The quotient of @ab@ factored from @abcs@
+    type abcs :/ ab
+    factorPrefix :: abcs -> (ab, abcs :/ ab)
+
+instance FactorPrefix () (x,y) where
+    type (x,y) :/ () = (x,y)
+    factorPrefix = (,) ()
+instance FactorPrefix () () where
+    type () :/ () = ()
+    factorPrefix = (,) ()
+
+instance (FactorPrefix bs bcs)=> FactorPrefix (a,bs) (a,bcs) where
+    type (a,bcs) :/ (a,bs) = bcs :/ bs
+    factorPrefix (a,bcs) = first ((,) a) $ factorPrefix bcs
+
+instance (FactorPrefix (x,y) abc, FactorPrefix (x,y) abcs
+         )=> FactorPrefix (x,y) (Either abc abcs) where
+    type Either abc abcs :/ (x,y) = Either (abc :/ (x,y)) (abcs :/ (x,y))
+    factorPrefix (Left abc) = fmap Left $ factorPrefix abc 
+    factorPrefix (Right abcs) =  fmap Right $ factorPrefix abcs
+instance (FactorPrefix () abc, FactorPrefix () abcs
+         )=> FactorPrefix () (Either abc abcs) where
+    type Either abc abcs :/ () = Either (abc :/ ()) (abcs :/ ())
+    factorPrefix (Left abc) = fmap Left $ factorPrefix abc 
+    factorPrefix (Right abcs) =  fmap Right $ factorPrefix abcs
+
+-- | 'Coproduct's of the unit type represent constants at the type level, and
+-- their /values/ are the ordinal numbers, representing position.
+class Constant c
+instance Constant ()
+instance (Constant c)=> Constant (Either () c)
