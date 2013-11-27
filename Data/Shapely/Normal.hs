@@ -34,7 +34,7 @@ compatibility issues when this module is improved.
     -- * Operations on Products
     , List(..)
     -- ** Composition & Construction Convenience Operators
-    -- TODO: add singleton :: a -> (a,())
+    , single
  -- , (.++.)
     , (|>), (<|), (<!)
 
@@ -46,6 +46,9 @@ compatibility issues when this module is improved.
     -- ** Factoring and Distributing
     , extract
     , FactorPrefix(..)
+
+    , DistributeTerm(..), (:<*|:)
+    , Multiply(..) 
     
     -- ** Exponentiation
     -- | In the algebra of algebraic datatypes, @(->)@ is analogous to
@@ -56,8 +59,15 @@ compatibility issues when this module is improved.
     , constructorsOfNormal
 
     -- ** Constants
-  --, Constant(..)
+    , Constant(..)
   --, _1st, _2nd, _3rd, _4th, _5th, _6th, _7th, _8th, _9th, _last --TODO or _1, _2, ... or _1th, _2th, etc
+  --, ofLength (e.g. _2nd `ofLength`)
+  --     but should this take a /Product/ as argument? 
+  --     Answer: where are we using these constants?
+  --         - indexing via exponential form
+  --         - indexing into List (labeled with a Constant)
+  --         - 
+  --, _+_ , succ, (math with ordinal numbers; this would add the ordinal representations)
     ) where
 
 import Data.Shapely.Category
@@ -84,6 +94,7 @@ import qualified Prelude
 --      - create a length-indexed list (opaque for safety) that is, perhaps
 --        Foldable/Traversable and can be converted from and back into a Product.
 --        Maybe replace toList with Foldable.toList
+--        add a safe index function
 --
 --      - look into type families w/ coincident overlap for SHapely.Bool module
 --           http://typesandkinds.wordpress.com/2013/04/29/coincident-overlap-in-type-families/
@@ -110,7 +121,9 @@ import qualified Prelude
 --      - freeze 'massage' behavior
 --      - support inlining, and "templates" defining structure. Have NormalR use this
 --      - maybe: 
---          - type-indexed 'factor' (and maybe 'distrivbute')
+--          - type-indexed 'factor' (and maybe 'distrivbute'), maybe two variants:
+--              - automatically factors out all common terms (regardless of position)
+--              - factors out specifically-requested terms (regardless of position
 --          - incorporate TypeNat stuff (for specifying length and constructor number)
 --
 --    sometime:
@@ -183,9 +196,9 @@ type (x :*! y) = (x,(y,()))
 viewr :: (Symmetric (->) p, Shiftable t, ShiftedR t ~ p a b) => t -> p b a
 viewr = swap . shiftr
 
-{-
 -- TODO: or name this class "higher-order normal" or something?
 --       we should be able to do 'append' here with a match on ((x,xs),xss) .. ((),xss)... etc.
+--       maybe remove this; confusing since Either instance not a Coproduct.
 -- | Class for flattening a 'Product' of 'Product's, or a nested sum of
 -- 'Coproduct's.
 class Concatable xs where
@@ -220,7 +233,6 @@ instance (Concatable ess, Appendable (Either x ys) (Concated ess)
     )=> Concatable (Either (Either x ys) ess) where
     type Concated (Either (Either x ys) ess) = Either x ys :++: Concated ess
     concat = append . fmap concat
--}
 
 
 -- | Reversing 'Products' and 'Coproduct's
@@ -295,20 +307,7 @@ instance (Shiftable (Either y zs)
 
 
 
--- TODO: rethink this and Concatable
---         - This is a bit redundant in light of Concatable, though we'd have
---            to move the functionality here up there
---         - in that case we want to use perhaps :**:, or something with an
---            arrow a.la list comprehensions?
---       make room for a "multiply" function for products and coproducts. 
---          - NOTE: cartesian product of coproducts
---          - Then also consider making (|>) follow the Monoidal style and also
---             work on coproducts (this is multiplication)
---              - then also look at the :> type function...
---
-
-{-
-
+-- TODO remove, move functionality into Concatable
 -- | A @(++)@-like append operation on 'Product's and 'Coproduct's. See also
 -- ('.++.'). e.g.
 --
@@ -339,8 +338,7 @@ instance (Appendable (Either b ts) us)=> Appendable (Either a (Either b ts)) us 
     type Either a (Either b ts) :++: us = Either a (Either b ts :++: us)
     append = fmap append . associate
 
-
-
+{-
 infixr 5 .++.
 -- | A convenience operator for concating two product types.
 -- 
@@ -349,6 +347,62 @@ infixr 5 .++.
 (.++.) = curry append
 -}
 
+
+single :: a -> (a,())
+single a = (a,())
+
+
+-- TODO or name >*< and <*  and *>, 
+--      also consider the two + operators for Constants (which ordinal value is favored)
+infixr 5 :|*|:, :<*|:, |*|, <*|
+
+-- | Algebraic multiplication of two 'Normal' form types @xs@ and @ys@. When
+-- both are 'Product's this operation is like the Prelude @(++)@. When both are
+-- 'Coproduct's the ordering of constructors follow the \"FOIL\" pattern, e.g.
+-- @(a + b + c)*(x + y) == (ax + ay + bx + by + cx + cy)@
+--
+-- Just like normal multiplication, this is a monoid with @()@ as our identity
+-- object.
+class Multiply xs ys where
+    type xs :|*|: ys
+    -- | Multiply 'Normal' types.
+    (|*|) :: xs -> ys -> xs :|*|: ys
+
+instance Multiply () ys where
+    type () :|*|: ys = ys
+    _ |*| ys = ys
+
+instance (Product xs, DistributeTerm (xs :|*|: ys), Multiply xs ys)=> Multiply (x,xs) ys where 
+    type (x,xs) :|*|: ys = x :<*|: xs :|*|: ys
+    (x,xs) |*| ys = x <*| xs |*| ys
+
+instance (Multiply as ys, Multiply bss ys, Concatable (Either (as :|*|: ys) (bss :|*|: ys))
+    )=> Multiply (Either as bss) ys where
+    -- type (Either as bss) :|*|: ys = (as :|*|: ys) :|*|: (bss :|*|: ys)
+    type (Either as bss) :|*|: ys = Concated (Either (as :|*|: ys) (bss :|*|: ys))
+    e |*| ys = concat $ bimap (|*| ys) (|*| ys) e
+
+
+type family a :<*|: xs
+type instance a :<*|: () = (a,())
+type instance a :<*|: (x,xs) = (a,(x,xs))
+type instance a :<*|: Either xs yss = Either (a :<*|: xs) (a :<*|: yss)
+
+-- TODO snoc
+class DistributeTerm xs where
+    (<*|) :: a -> xs -> a :<*|: xs
+
+instance DistributeTerm () where
+    (<*|) a as = (a, as)
+    
+instance DistributeTerm (x,xs) where
+    (<*|) a as = (a, as)
+
+instance (DistributeTerm xs, DistributeTerm yss)=> DistributeTerm (Either xs yss) where
+    (<*|) a = bimap (a <*|) (a <*|)
+
+
+-- TODO or should these be replace with above????:
 
 infixl 5 |>
 infixr 5 <| 
@@ -406,29 +460,19 @@ instance (List a as)=> List a (a,as) where
     replicate a = (a,replicate a)
 
 
-{-
--- | Extract the value from a homogeneous sum.
---
--- See also 'replicate' for 'Product's.
-class Product a=> Extract a as | as -> a where
-    -- | an n-ary @codiag@:
-    extract :: as -> a
-
-instance (Product a)=> Extract a (Only a) where
-    extract = just
-
-instance (EitherTail as, Extract a (AsTail as))=> Extract a (Either a as) where
-    extract = eitherTail id extract
--}
-
 -- | Factor out and return the 'Product' from a homogeneous 'Coproduct'. An
 -- n-ary @codiag@.
 --
 -- See also 'replicate' for 'Product's.
 --
 -- > extract = fst . factorPrefix
-extract :: (FactorPrefix t (Either t ts), Constant (Either t ts :/ t))=> Either t ts -> t
+extract :: (FactorPrefix t (Either t ts), Constant ((Either t ts) :/ t))=> Either t ts -> t
 extract = fst . factorPrefix
+
+
+-- TODO we'd get better inferrence if we can make FactorPrefix look like:
+--   class (Product ab)=> FactorPrefix ab abcs cs | ab abcs -> cs, ab cs -> abcs, abcs cs -> ab where
+-- and then could we combine 'multiply with this class?
 
 -- | A 'Product' or 'Coproduct' @abcs@ out of which we can factor the product
 -- @ab@, leaving some quotient.
@@ -459,8 +503,9 @@ instance (FactorPrefix () abc, FactorPrefix () abcs
     factorPrefix (Left abc) = fmap Left $ factorPrefix abc 
     factorPrefix (Right abcs) =  fmap Right $ factorPrefix abcs
 
--- | 'Coproduct's of the unit type represent constants at the type level, and
--- their /values/ are the ordinal numbers, representing position.
+-- | 'Coproduct's of the unit type are our constants in the algebra of ADTs.
+-- They are cardinal numbers at the type level (length), while their /values/
+-- are ordinal numbers (indicating position).
 class Constant c
 instance Constant ()
 instance (Constant c)=> Constant (Either () c)

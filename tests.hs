@@ -39,14 +39,55 @@ p = 1 <| 'a' <! True
 
 test_constructorsOfNormal_prod = constructorsOfNormal ('a',('b',())) 'x' 'y'  ==  ('x',('y',()))
 
--- CONCATABLE
 {-
+-- CONCATABLE
 concated_p :: (Int,(Char,(Bool,(Int,(Char,(Bool,()))))))
 concated_p = Sh.concat (p, (p, ()))
 
 test_concated_s = ( Sh.concat $ (Right s  :: Either (Either (Int,()) (Either (Char,()) (Bool,())))  (Either (Int,()) (Either (Char,()) (Bool,(String,())))) ) )
                     == Right (Right (Right (Right (Right (True,("true",()))))))
 -}
+
+test_distributeTerm = 
+    let s' = Right (Right (1,(True,("true",()))))
+     in s' == 1 <*| s
+
+multiply1
+  :: Either
+       (Int, (Int, ()))
+       (Either
+          (Int, (Char, ()))
+          (Either
+             (Int, (Bool, (String, ())))
+             (Either
+                (Char, (Int, ()))
+                (Either
+                   (Char, (Char, ()))
+                   (Either
+                      (Char, (Bool, (String, ())))
+                      (Either
+                         (Bool, ([Char], (Int, ())))
+                         (Either
+                            (Bool, ([Char], (Char, ())))
+                            (Bool, ([Char], (Bool, (String, ())))))))))))
+multiply1 = s |*| s
+
+test_multiply2 = p |*| () |*| p == 1 <| 'a' <| True <| 1 <| 'a' <! True
+
+test_multiply_monoid = and $ 
+    [ () |*| p == p
+    , p |*| () == p
+    , () |*| s == s
+    , s |*| () == s
+    , (p |*| p) |*| p == p |*| (p |*| p)
+    , (s |*| p) |*| p == s |*| (p |*| p)
+    , (p |*| s) |*| p == p |*| (s |*| p)
+    , (p |*| p) |*| s == p |*| (p |*| s)
+    , (s |*| s) |*| p == s |*| (s |*| p)
+    , (p |*| s) |*| s == p |*| (s |*| s)
+    , (s |*| s) |*| s == s |*| (s |*| s)
+    ]
+    
 
 -- REVERSABLE
 s_rev :: Either (Bool,(String,())) (Either (Char,()) (Int,()))
@@ -121,6 +162,8 @@ test_extract = let s' :: Either (Int,()) (Either (Int,()) (Int,()))
                    s' = Right (Right (1,()))
                 in extract s'  ==  (1,())
 
+test_factorPrefix = ('a',(True,())) == 
+    (fst $ factorPrefix (Left ('a',(True,('b',()))) :: Either (Char,(Bool,(Char,()))) (Char,(Bool,())) ))
 
 -------- MASSAGEABLE
 
@@ -310,6 +353,12 @@ th_rec_reg_poly_param_swapping_coerce_pred :: (RegRecParams1 a b, RegRecParams2 
 th_rec_reg_poly_param_swapping_coerce_pred = 
     let (x,y) = (RRPNil1, coerce x) 
      in (x,y)
+
+-- if we can make FactorPrefix look like:
+-- class (Product ab)=> FactorPrefix ab abcs cs | ab abcs -> cs, ab cs -> abcs, abcs cs -> ab where
+-- we'd get better inferrence, supporting:
+test_factorPrefix2 = ( ('a',(True,())) , (Left ('b',())) :: Either (Char,()) () ) == 
+    (factorPrefix (Left ('a',(True,('b',())))  ))
 -}
 
 
