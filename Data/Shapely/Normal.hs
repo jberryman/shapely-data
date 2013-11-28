@@ -26,28 +26,26 @@ compatibility issues when this module is improved.
     , Reversable(..)
     , Shiftable(..)
     , viewr
- -- , Appendable(..)
- -- , Concatable(..)
+ -- , Appendable(..), Concatable(..)
     -- ** Convenience Type synonyms
     , (:*:), (:*!), (:+:)
 
     -- * Operations on Products
     , List(..)
-    -- ** Composition & Construction Convenience Operators
+    -- ** Construction Convenience Operators
     , single
- -- , (.++.)
     , (|>), (<|), (<!)
 
     -- * Product and Coproduct Conversions
     , MassageableNormal(..)
 
     -- * Algebraic
-
-    -- ** Factoring and Distributing
+    -- ** Factoring
     , extract
     , FactorPrefix(..)
 
-    , DistributeTerm(..), (:<*|:)
+    -- ** Distributing
+    , DistributeTerm(..), (:*<:)
     , Multiply(..) 
     
     -- ** Exponentiation
@@ -352,9 +350,7 @@ single :: a -> (a,())
 single a = (a,())
 
 
--- TODO or name >*< and <*  and *>, 
---      also consider the two + operators for Constants (which ordinal value is favored)
-infixr 5 :|*|:, :<*|:, |*|, <*|
+infixr 5 :>*<:, :*<:, >*<, *<
 
 -- | Algebraic multiplication of two 'Normal' form types @xs@ and @ys@. When
 -- both are 'Product's this operation is like the Prelude @(++)@. When both are
@@ -364,45 +360,58 @@ infixr 5 :|*|:, :<*|:, |*|, <*|
 -- Just like normal multiplication, this is a monoid with @()@ as our identity
 -- object.
 class Multiply xs ys where
-    type xs :|*|: ys
+    type xs :>*<: ys
     -- | Multiply 'Normal' types.
-    (|*|) :: xs -> ys -> xs :|*|: ys
+    (>*<) :: xs -> ys -> xs :>*<: ys
 
 instance Multiply () ys where
-    type () :|*|: ys = ys
-    _ |*| ys = ys
+    type () :>*<: ys = ys
+    _ >*< ys = ys
 
-instance (Product xs, DistributeTerm (xs :|*|: ys), Multiply xs ys)=> Multiply (x,xs) ys where 
-    type (x,xs) :|*|: ys = x :<*|: xs :|*|: ys
-    (x,xs) |*| ys = x <*| xs |*| ys
+instance (Product xs, DistributeTerm (xs :>*<: ys), Multiply xs ys)=> Multiply (x,xs) ys where 
+    type (x,xs) :>*<: ys = x :*<: xs :>*<: ys
+    (x,xs) >*< ys = x *< xs >*< ys
 
-instance (Multiply as ys, Multiply bss ys, Concatable (Either (as :|*|: ys) (bss :|*|: ys))
+instance (Multiply as ys, Multiply bss ys, Concatable (Either (as :>*<: ys) (bss :>*<: ys))
     )=> Multiply (Either as bss) ys where
-    -- type (Either as bss) :|*|: ys = (as :|*|: ys) :|*|: (bss :|*|: ys)
-    type (Either as bss) :|*|: ys = Concated (Either (as :|*|: ys) (bss :|*|: ys))
-    e |*| ys = concat $ bimap (|*| ys) (|*| ys) e
+    -- type (Either as bss) :>*<: ys = (as :>*<: ys) :>*<: (bss :>*<: ys)
+    type (Either as bss) :>*<: ys = Concated (Either (as :>*<: ys) (bss :>*<: ys))
+    e >*< ys = concat $ bimap (>*< ys) (>*< ys) e
 
 
-type family a :<*|: xs
-type instance a :<*|: () = (a,())
-type instance a :<*|: (x,xs) = (a,(x,xs))
-type instance a :<*|: Either xs yss = Either (a :<*|: xs) (a :<*|: yss)
+type family a :*<: xs
+type instance a :*<: () = (a,())
+type instance a :*<: (x,xs) = (a,(x,xs))
+type instance a :*<: Either xs yss = Either (a :*<: xs) (a :*<: yss)
 
--- TODO snoc
+type family xs :>*: a
+type instance () :>*: a = (a,())
+type instance (x,xs) :>*: a = (x, xs :>*: a)
+type instance Either xs yss :>*: a = Either (xs :>*: a) (yss :>*: a)
+
+-- | Algebraic multiplication of a term with some 'Normal' type @xs@. When @xs@
+-- is a 'Product' these are simple Cons/Snoc. For 'Coproeuct's the operation is
+-- distributed over all constructors, e.g. @a*(x + y + z) = (ax + ay + az)@
 class DistributeTerm xs where
-    (<*|) :: a -> xs -> a :<*|: xs
+    -- | prepend the term @a@.
+    (*<) :: a -> xs -> a :*<: xs
+    -- | append the term @a@.
+    (>*) :: xs -> a -> xs :>*: a
 
 instance DistributeTerm () where
-    (<*|) a as = (a, as)
+    (*<) a as = (a, as)
+    (>*) () a = (a,())
     
-instance DistributeTerm (x,xs) where
-    (<*|) a as = (a, as)
+instance DistributeTerm xs=> DistributeTerm (x,xs) where
+    (*<) a as = (a, as)
+    (>*) (x,xs) a = (x, xs >* a)
 
 instance (DistributeTerm xs, DistributeTerm yss)=> DistributeTerm (Either xs yss) where
-    (<*|) a = bimap (a <*|) (a <*|)
+    (*<) a = bimap (a *<) (a *<)
+    (>*) as a = bimap (>* a) (>* a) as
 
 
--- TODO or should these be replace with above????:
+
 
 infixl 5 |>
 infixr 5 <| 

@@ -49,8 +49,8 @@ test_concated_s = ( Sh.concat $ (Right s  :: Either (Either (Int,()) (Either (Ch
 -}
 
 test_distributeTerm = 
-    let s' = Right (Right (1,(True,("true",()))))
-     in s' == 1 <*| s
+    let s' = Right (Right (1,(True,("true",(9,())))))
+     in s' == 1 *< s >* 9
 
 multiply1
   :: Either
@@ -70,22 +70,22 @@ multiply1
                          (Either
                             (Bool, ([Char], (Char, ())))
                             (Bool, ([Char], (Bool, (String, ())))))))))))
-multiply1 = s |*| s
+multiply1 = s >*< s
 
-test_multiply2 = p |*| () |*| p == 1 <| 'a' <| True <| 1 <| 'a' <! True
+test_multiply2 = p >*< () >*< p == 1 <| 'a' <| True <| 1 <| 'a' <! True
 
 test_multiply_monoid = and $ 
-    [ () |*| p == p
-    , p |*| () == p
-    , () |*| s == s
-    , s |*| () == s
-    , (p |*| p) |*| p == p |*| (p |*| p)
-    , (s |*| p) |*| p == s |*| (p |*| p)
-    , (p |*| s) |*| p == p |*| (s |*| p)
-    , (p |*| p) |*| s == p |*| (p |*| s)
-    , (s |*| s) |*| p == s |*| (s |*| p)
-    , (p |*| s) |*| s == p |*| (s |*| s)
-    , (s |*| s) |*| s == s |*| (s |*| s)
+    [ () >*< p == p
+    , p >*< () == p
+    , () >*< s == s
+    , s >*< () == s
+    , (p >*< p) >*< p == p >*< (p >*< p)
+    , (s >*< p) >*< p == s >*< (p >*< p)
+    , (p >*< s) >*< p == p >*< (s >*< p)
+    , (p >*< p) >*< s == p >*< (p >*< s)
+    , (s >*< s) >*< p == s >*< (s >*< p)
+    , (p >*< s) >*< s == p >*< (s >*< s)
+    , (s >*< s) >*< s == s >*< (s >*< s)
     ]
     
 
