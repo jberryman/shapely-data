@@ -35,6 +35,7 @@ class Exponent abc where
     fanin :: (abc :=>-> r) -> (abc -> r)
     unfanin :: (abc -> r) -> (abc :=>-> r)
 
+-- TODO unfanout
 -- | A class for the exponent laws with the 'Normal' form @abc@ in the base
 -- place. See the instance documentation for concrete types and examples.
 class Base abc where
@@ -64,7 +65,7 @@ instance (Exponent bs)=> Exponent (a,bs) where
 instance (Base bs)=> Base (a,bs) where
     fanout (f,fs) = f &&& fanout fs
 
--- | [@fanin@] an n-ary @(|||)@
+-- | [@fanin@] an n-ary @(|||)@, and (!!)
 --   
 --   [@unfanin@] an n-ary TODO
 --
@@ -73,6 +74,11 @@ instance (Base bs)=> Base (a,bs) where
 -- >>> let s = Right $ Right (1,([2..5],())) :: Either (Int,()) ( Either () (Int,([Int],())) )
 -- >>> fanin ((+1), (3, (foldr (+), ()))) s 
 -- 15
+--
+-- And for fetching an element at an index...
+--
+-- >>> fanin (1,(2,(3,(4,())))) _4th
+-- 4
 instance (EitherTail bs, Exponent bs, Exponent (AsTail bs), Exponent a)=> Exponent (Either a bs) where
     fanin (f,fs) = eitherTail (fanin f) (fanin fs)
     unfanin f = (unfanin (f . Left), unfanin (f . Right . fromTail))

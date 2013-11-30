@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}  -- for nested Type families. We intend these to be closed anyway, so no biggie
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 -- NO OVERLAPPING INSTANCES HERE, PLEASE
 module Data.Shapely.Normal (
 {- |
@@ -31,7 +32,7 @@ compatibility issues when this module is improved.
     , (:*:), (:*!), (:+:)
 
     -- * Operations on Products
-    , List(..)
+    , Homogeneous(..), FixedList()
     -- ** Construction Convenience Operators
     , single
     , (|>), (<|), (<!)
@@ -57,7 +58,7 @@ compatibility issues when this module is improved.
     , constructorsOfNormal
 
     -- ** Constants
-    , Constant(..)
+    , Constant(..), Length(..), Replicated(..)
   --, _1st, _2nd, _3rd, _4th, _5th, _6th, _7th, _8th, _9th, _last --TODO or _1, _2, ... or _1th, _2th, etc
   --, ofLength (e.g. _2nd `ofLength`)
   --     but should this take a /Product/ as argument? 
@@ -78,6 +79,8 @@ import Control.Applicative() -- Functor instances for (,) and Either
 import Prelude hiding (replicate,concat,reverse, map)
 import qualified Prelude 
 
+import Data.Foldable(Foldable)
+import Data.Traversable(Traversable)
 
 -- TODO:
 --      - comment concatable/appendable
@@ -417,7 +420,7 @@ infixl 5 |>
 infixr 5 <| 
 infixr 5 <!
 -- | A convenience operator for appending an element to a product type.
--- 'Shiftable' generalizes this operation.
+-- 'Shiftable' generalizes this operation. See also 'Multiply'.JJ
 --
 -- > xs |> x = shiftl (x,xs)
 (|>) :: (Product xs, Shiftable (x,xs))=> xs -> x -> (xs :> x)
@@ -445,11 +448,33 @@ constructorsOfNormal :: (Exponent r)=> r -> (r :=>-> r)
 constructorsOfNormal r = unfanin (id . (`asTypeOf` r))
 
 
--- | A class for homogeneous products with terms all of type @a@.
-class (Product as)=> List a as | as -> a where
-    -- | Convert a homogeneous product to a list.
-    toList :: as -> [a]
+-- NOTE: must not export constructor, 
+--       must not derive instances that can modify length
+newtype FixedList length a = FixedList { fixedList :: [a] } 
+    deriving (Functor, Foldable, Traversable)
 
+-- TODO Show instance, after e.g. Data.Set
+
+-- NOTE: this hasn't came up as obviously useful until we wanted to store the
+--       length of the empty product in FixedList. For now we'll not export this.
+data Zero
+
+type family Length t
+type instance Length () = Zero                              -- | 0
+type instance Length (a,()) = ()                            -- | 1
+type instance Length (a,(b,bs)) = Either () (Length (b,bs)) -- | 1 + (length tail)
+
+-- TODO replicate should take a Proxy (Constant a)?
+-- replicate :: (Constant c)=> Proxy c -> a -> Replicated c a
+type family Replicated len a
+type instance Replicated Zero a = ()
+type instance Replicated () a = (a,())
+type instance Replicated (Either () n) a = (a, Replicated n a)
+
+
+
+-- | A class for homogeneous 'Product's with terms all of type @a@.
+class (Product as)=> Homogeneous a as | as -> a where
     -- | "Fill" a product with an initial value. If the size of the resulting
     -- product can't be inferred from context, provide a sype signature:
     --
@@ -458,15 +483,22 @@ class (Product as)=> List a as | as -> a where
     -- An n-ary @codiag@. See also 'extract' for 'Coproduct's
     replicate :: a -> as
 
-  -- map :: (bs `OfLength` as, List b bs)=> (a -> b) -> as -> bs --TODO
+    -- | Convert a homogeneous product to a fixed-length list.
+    toFixedList :: as -> FixedList (Length as) a
+    -- | Convert a list back into a homogeneous 'Product'.
+ -- fromFixedList :: FixedList (Length as) a -> as -- but for type inferrence...
+    fromFixedList :: (as ~ Replicated len a, len ~ Length as 
+                     )=> FixedList len a -> Replicated len a
 
-instance List a () where
-    toList () = []
+instance Homogeneous a () where
     replicate _ = ()
+    toFixedList () = FixedList []
+    fromFixedList (FixedList []) = ()
 
-instance (List a as)=> List a (a,as) where
-    toList (a,as) = a : toList as
+instance (Homogeneous a as, Replicated (Length as) a ~ as)=> Homogeneous a (a,as) where
     replicate a = (a,replicate a)
+    toFixedList (a,as) = FixedList (a : (fixedList $ toFixedList as))
+    fromFixedList (FixedList (a:as)) = (a,fromFixedList $ FixedList as)
 
 
 -- | Factor out and return the 'Product' from a homogeneous 'Coproduct'. An
