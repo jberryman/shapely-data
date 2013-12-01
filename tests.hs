@@ -157,10 +157,12 @@ test_fanout_prod = fanout (head,(tail,(length,()))) [1..3] == (1,([2,3],(3,())))
 
 
 -- test of inferrence convenience:
-test_replicate = (3  ==) $ (\(x,(y,(z,())))-> x+y+z) $ Sh.replicate 1
+test_repeat = (3  ==) $ (\(x,(y,(z,())))-> x+y+z) $ Sh.repeat 1
 -- THIS DOESN'T WORK, HOWEVER. any way to restructure fanin to make inferrence possible?
--- replicate_test2 = (3 ==) $ Sh.uncurry (\x y z-> x+y+z) $ Sh.replicate 1
-test_replicate2 = (3 ==) $ Sh.fanin (\x y z-> x+y+z) (Sh.replicate 1 :: (Int,(Int,(Int,()))))
+-- repeat_test2 = (3 ==) $ Sh.uncurry (\x y z-> x+y+z) $ Sh.repeat 1
+test_repeat2 = (3 ==) $ Sh.fanin (\x y z-> x+y+z) (Sh.repeat 1 :: (Int,(Int,(Int,()))))
+
+test_replicate = (\(_,(a,_)) -> a == 2) $ Sh.replicate (Proxy :: Proxy (Either () (Either () ()))) 2
 
 test_extract = let s' :: Either (Int,()) (Either (Int,()) (Int,()))
                    s' = Right (Right (1,()))

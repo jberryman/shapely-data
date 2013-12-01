@@ -32,7 +32,7 @@ compatibility issues when this module is improved.
     , (:*:), (:*!), (:+:)
 
     -- * Operations on Products
-    , Homogeneous(..), FixedList(), ($$:)
+    , Homogeneous(..), FixedList(), ($$:), replicate
     -- ** Construction Convenience Operators
     , single
     , (|>), (<|), (<!)
@@ -76,11 +76,12 @@ import Data.Shapely.Normal.Massageable
 import Data.Shapely.Normal.Exponentiation
 import Control.Applicative() -- Functor instances for (,) and Either
 
-import Prelude hiding (replicate,concat,reverse, map)
+import Prelude hiding (repeat,replicate,concat,reverse, map)
 import qualified Prelude 
 
 import Data.Foldable(Foldable)
 import Data.Traversable(Traversable)
+import Data.Proxy
 
 -- TODO:
 --      - comment concatable/appendable
@@ -148,7 +149,6 @@ import Data.Traversable(Traversable)
 --     - length type func. (with type nats?)
 --     - splitAt  (product take/drop in terms of this)
 --     - popi (or factori?). product (!!) in terms of this
---     - replicate
 --
 --   complex, maybe not useful:
 --     - intersperse
@@ -166,7 +166,7 @@ import Data.Traversable(Traversable)
 --
 -- -------
 -- FUTURE TODOs:
---   -figure out rest of equivalents of categories' Control.Category.Cartesian. see notes re. replicate & sum/product numerals (templates?)
+--   -figure out rest of equivalents of categories' Control.Category.Cartesian. see notes re. repeat & sum/product numerals (templates?)
 --   -closed TypeFamilies for simpler instances?
 --   -type-level naturals for e.g. 'length;-like functions
 --   -explore relationship to:
@@ -486,16 +486,21 @@ infixr 0 $$:
       Homogeneous b bs, Homogeneous a as, Length bs ~ len) =>
      (FixedList len a -> FixedList len b) -> as -> bs
 ($$:) f = fromFList . f . toFList
+    
+replicate :: (Homogeneous a as, as ~ Replicated len a, len ~ Length as )=> 
+              Proxy len -> a -> Replicated len a
+replicate _ = repeat
+
 
 -- | A class for homogeneous 'Product's with terms all of type @a@.
 class (Product as)=> Homogeneous a as | as -> a where
     -- | "Fill" a product with an initial value. If the size of the resulting
     -- product can't be inferred from context, provide a sype signature:
     --
-    -- > truths = replicate True :: (Bool,(Bool,(Bool,())))
+    -- > truths = repeat True :: (Bool,(Bool,(Bool,())))
     --
     -- An n-ary @codiag@. See also 'extract' for 'Coproduct's
-    replicate :: a -> as
+    repeat :: a -> as
 
     -- | Convert a homogeneous product to a fixed-length list.
     toFList :: as -> FixedList (Length as) a
@@ -503,15 +508,16 @@ class (Product as)=> Homogeneous a as | as -> a where
     fromFList :: (as ~ Replicated len a, len ~ Length as )=> 
                   FixedList len a -> Replicated len a
  -- fromFList :: FixedList (Length as) a -> as -- but for better type inferrence, above.
+    
 
 instance Homogeneous a () where
-    replicate _ = ()
+    repeat _ = ()
     toFList () = FixedList []
     fromFList (FixedList []) = ()
     fromFList _ = error "FixedList longer than stored length somehow! Please report this bug"
 
 instance (Homogeneous a as, Replicated (Length as) a ~ as)=> Homogeneous a (a,as) where
-    replicate a = (a,replicate a)
+    repeat a = (a,repeat a)
     toFList (a,as) = FixedList (a : (fixedList $ toFList as))
     fromFList (FixedList (a:as)) = (a,fromFList $ FixedList as)
     fromFList _ = error "FixedList shorter than stored length somehow! Please report this bug"
@@ -520,7 +526,7 @@ instance (Homogeneous a as, Replicated (Length as) a ~ as)=> Homogeneous a (a,as
 -- | Factor out and return the 'Product' from a homogeneous 'Coproduct'. An
 -- n-ary @codiag@.
 --
--- See also 'replicate' for 'Product's.
+-- See also 'repeat' for 'Product's.
 --
 -- > extract = fst . factorPrefix
 extract :: (FactorPrefix t (Either t ts), Constant ((Either t ts) :/ t))=> Either t ts -> t
