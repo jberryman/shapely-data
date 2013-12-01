@@ -32,7 +32,7 @@ compatibility issues when this module is improved.
     , (:*:), (:*!), (:+:)
 
     -- * Operations on Products
-    , Homogeneous(..), FixedList()
+    , Homogeneous(..), FixedList(), ($$:)
     -- ** Construction Convenience Operators
     , single
     , (|>), (<|), (<!)
@@ -450,10 +450,15 @@ constructorsOfNormal r = unfanin (id . (`asTypeOf` r))
 
 -- NOTE: must not export constructor, 
 --       must not derive instances that can modify length
+-- | An opaque wrapper type allowing application of useful class methods on
+-- 'Homogeneous' 'Product's. Only operations that don't modify the length of
+-- the product (which is stored in the @len@ parameter) are supported.
 newtype FixedList length a = FixedList { fixedList :: [a] } 
-    deriving (Functor, Foldable, Traversable)
+    deriving (Functor, Foldable, Traversable, Eq, Ord)
 
--- TODO Show instance, after e.g. Data.Set
+-- TODO constraints in fromFList might be stupid, as evidenced here
+instance (as ~ Replicated len a, Homogeneous a as, Show as, len ~ Length as)=> Show (FixedList len a) where
+    show l = "toFList " ++ show (fromFList l)
 
 -- NOTE: this hasn't came up as obviously useful until we wanted to store the
 --       length of the empty product in FixedList. For now we'll not export this.
@@ -472,6 +477,15 @@ type instance Replicated () a = (a,())
 type instance Replicated (Either () n) a = (a, Replicated n a)
 
 
+-- TODO rename replicate to repeat and add replicate :: Constant c=> Proxy c -> a -> Replicated c a
+
+infixr 0 $$:
+-- | > ($$:) f = fromFList . f . toFList
+($$:)
+  :: (Length as ~ len, Replicated len b ~ bs, -- for cleaner type
+      Homogeneous b bs, Homogeneous a as, Length bs ~ len) =>
+     (FixedList len a -> FixedList len b) -> as -> bs
+($$:) f = fromFList . f . toFList
 
 -- | A class for homogeneous 'Product's with terms all of type @a@.
 class (Product as)=> Homogeneous a as | as -> a where
@@ -484,21 +498,23 @@ class (Product as)=> Homogeneous a as | as -> a where
     replicate :: a -> as
 
     -- | Convert a homogeneous product to a fixed-length list.
-    toFixedList :: as -> FixedList (Length as) a
+    toFList :: as -> FixedList (Length as) a
     -- | Convert a list back into a homogeneous 'Product'.
- -- fromFixedList :: FixedList (Length as) a -> as -- but for type inferrence...
-    fromFixedList :: (as ~ Replicated len a, len ~ Length as 
-                     )=> FixedList len a -> Replicated len a
+    fromFList :: (as ~ Replicated len a, len ~ Length as )=> 
+                  FixedList len a -> Replicated len a
+ -- fromFList :: FixedList (Length as) a -> as -- but for better type inferrence, above.
 
 instance Homogeneous a () where
     replicate _ = ()
-    toFixedList () = FixedList []
-    fromFixedList (FixedList []) = ()
+    toFList () = FixedList []
+    fromFList (FixedList []) = ()
+    fromFList _ = error "FixedList longer than stored length somehow! Please report this bug"
 
 instance (Homogeneous a as, Replicated (Length as) a ~ as)=> Homogeneous a (a,as) where
     replicate a = (a,replicate a)
-    toFixedList (a,as) = FixedList (a : (fixedList $ toFixedList as))
-    fromFixedList (FixedList (a:as)) = (a,fromFixedList $ FixedList as)
+    toFList (a,as) = FixedList (a : (fixedList $ toFList as))
+    fromFList (FixedList (a:as)) = (a,fromFList $ FixedList as)
+    fromFList _ = error "FixedList shorter than stored length somehow! Please report this bug"
 
 
 -- | Factor out and return the 'Product' from a homogeneous 'Coproduct'. An

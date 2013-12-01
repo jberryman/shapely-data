@@ -148,9 +148,9 @@ appended_s = let s_ss = (Right s) :: Either ( Either (Char,()) (Int,()) )  ( Eit
 -}
 
 -- Homogeneous
-test_toList = ( toList $ toFixedList (1,(2,(3,()))) ) == [1,2,3]
-test_toList2 =  null $ toList $ toFixedList ()  
-test_homogenous_inferrence = (\(a,as) -> a == 1) $ fromFixedList $ toFixedList (1,(2,(3,())))
+test_toList = ( toList $ toFList (1,(2,(3,()))) ) == [1,2,3]
+test_toList2 =  null $ toList $ toFList ()  
+test_homogenous_inferrence = (\(a,as) -> a == 1) $ fromFList $ toFList (1,(2,(3,())))
 
 -- CARTESIAN-ESQUE
 test_fanout_prod = fanout (head,(tail,(length,()))) [1..3] == (1,([2,3],(3,())))
@@ -364,7 +364,7 @@ th_rec_reg_poly_param_swapping_coerce_pred =
 test_factorPrefix2 = ( ('a',(True,())) , (Left ('b',())) :: Either (Char,()) () ) == 
     (factorPrefix (Left ('a',(True,('b',())))  ))
 
-test_toList2 = ( toList $ toFixedList () ) == []
+test_toList2 = ( toList $ toFList () ) == []
 -}
 
 
