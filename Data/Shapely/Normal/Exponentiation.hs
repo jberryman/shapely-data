@@ -35,11 +35,11 @@ class Exponent abc where
     fanin :: (abc :=>-> r) -> (abc -> r)
     unfanin :: (abc -> r) -> (abc :=>-> r)
 
--- TODO unfanout
 -- | A class for the exponent laws with the 'Normal' form @abc@ in the base
 -- place. See the instance documentation for concrete types and examples.
 class Base abc where
     fanout :: (r :->=> abc) -> (r -> abc)
+    unfanout :: (r -> abc) -> (r :->=> abc)
 
 instance Exponent () where
     fanin = const
@@ -47,6 +47,7 @@ instance Exponent () where
 
 instance Base () where
     fanout = const
+    unfanout f = ()
 
 -- | [@fanin@] an n-ary @uncurry@ 
 --   
@@ -64,6 +65,8 @@ instance (Exponent bs)=> Exponent (a,bs) where
 --
 instance (Base bs)=> Base (a,bs) where
     fanout (f,fs) = f &&& fanout fs
+    unfanout f = (fst . f, unfanout (snd . f))
+ -- unfanout = (fst .) &&& (unfanout . (snd .))
 
 -- | [@fanin@] an n-ary @(|||)@, and (!!)
 --   

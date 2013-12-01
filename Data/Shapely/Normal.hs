@@ -84,12 +84,10 @@ import Data.Traversable(Traversable)
 import Data.Proxy
 
 -- TODO:
---      - comment concatable/appendable
 --      - look at which functions are algebraic, re-order, put under -- * Algebraic heading
 --      - add missing functions
 --      - consider renaming of all
 --      - look over notes again, see if we missed anything
---      - fix Concatable/Appendable, add better Monoidal class
 --      - add in unicode math stuff in docs.
 --      - see about any '*As' variants that might be useful, for type inferrence
 --      - implement FunctorOn
