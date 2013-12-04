@@ -11,20 +11,20 @@ module Data.Shapely.Classes
 
 -- internal module to avoid circular dependencies
 
-import Data.Shapely.Normal.FannedApplication
+import Data.Shapely.Normal.Exponentiation
 import Data.Shapely.Normal.Classes
 
 
 
 -- | Instances of the 'Shapely' class can be converted to and from a 'Normal'
 -- representation, made up of @(,)@, @()@ and @Either@.
-class (Fans (Normal a) a)=> Shapely a where
+class (Exponent (Normal a))=> Shapely a where
     -- | A @Shapely@ instances \"normal form\" representation, consisting of
     -- nested product, sum and unit types. Types with a single constructor will
     -- be given a 'Product' Normal representation, where types with more than
     -- one constructor will be 'Coproduct's. 
     --
-    -- See the documentation for 'mkShapely', and the instances defined here
+    -- See the documentation for 'deriveShapely', and the instances defined here
     -- for details.
     type Normal a
 
@@ -33,7 +33,7 @@ class (Fans (Normal a) a)=> Shapely a where
     from :: Normal a -> a
     from na = let a = fanin (constructorsOf a) na in a
     
-    -- | Return a structure capable of recreating a type @a@ from its 'Normal'
+    -- | Return a structure capable of rebuilding a type @a@ from its 'Normal'
     -- representation (via 'fanin').
     --
     -- This structure is simply the data constructor (or a 'Product' of
@@ -41,12 +41,9 @@ class (Fans (Normal a) a)=> Shapely a where
     --
     -- > constructorsOf _ = (Left,(Right,()))
     --
-    -- ...possibly wrapped in a function to unwrap and apply 'from' to any
-    -- recursive 'AlsoNormal' sub-terms.
-    --
     -- Satisfies:
     --
-    -- > fanin (constructorsOf a) (to a) == a
+    -- > 'fanin' (constructorsOf a) (to a) == a
     constructorsOf :: a -> Normal a :=>-> a
 
 
@@ -79,30 +76,24 @@ instance Shapely (Either x y) where
   --from = either (Left . fst) (Right . fst)
     constructorsOf _ = (Left,(Right,()))
   
--- Where we have recursive structure, the Normal representation converts to
--- Normal form the recursive sub-terms and wraps them in AlsoNormal.
--- 'constructorsOf' does the inverse for those terms, before applying the
--- actual data constructor.
+-- The Normal form of a type is just a simple unpacking of the constructor
+-- terms, and doesn't do anything to express recursive structure. But this
+-- simple type function lets us work with different recursive structure in
+-- additional classes, like Isomorphic.
 instance Shapely [a] where 
     -- NOTE: data [] a = [] | a : [a]    -- Defined in `GHC.Types'
-    type Normal [a] = Either () (a,(AlsoNormal [a],()))
+    type Normal [a] = Either () (a,([a],()))
     to []         = Left ()
-    to ((:) a as) = Right (a, (Also $ to as, ()))
-    constructorsOf _ = ([],(\a as-> (:) a (from $ normal as),()))
+    to ((:) a as) = Right (a, (as, ()))
+    constructorsOf _ = ([],((:),()))
 
----- TODO: Check the equivalents of above in tests of TH code by using a newtype wrapper. -----
 ---- TODO  derive other instances of Prelude / etc. types here
 
-
+{-
 -- | A wrapper for recursive child occurences of a 'Normal'-ized type
 newtype AlsoNormal a = Also { normal :: Normal a }
 deriving instance (Show (Normal a))=> Show (AlsoNormal a)
 deriving instance (Eq (Normal a))=> Eq (AlsoNormal a)
 deriving instance (Ord (Normal a))=> Ord (AlsoNormal a)
 deriving instance (Read (Normal a))=> Read (AlsoNormal a)
-
-
--- | Two types @a@ and @b@ are isomorphic if their 'Normal' representations are
--- the same.
-class (Shapely a, Shapely b, Normal a ~ Normal b)=> Isomorphic a b
-instance (Shapely a, Shapely b, Normal a ~ Normal b)=> Isomorphic a b
+-}

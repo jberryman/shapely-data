@@ -72,6 +72,7 @@ type instance Last (Either x ()) = ()
 type instance Last (Either x (a,b)) = (a,b)
 type instance Last (Only b) = b
 
+-- Non-algebraic: add product to a sum, or multiply term onto product: --TODO still needed?
 type family t :< ts
 type instance x :< Only y = Either x y
 type instance x :< Either y zs = Either x (Either y zs)
@@ -86,7 +87,7 @@ type instance () :> x = (x,())
 type instance (x0,xs) :> x = (x0, xs :> x)
 
 type instance Either x0 xs :> x = Either x0 (Tail (Either x0 xs) :> x)
-type instance Only a :> b = Either a b -- TODO: insist on two instances for: b ~ () and b ~ (x,y)?
+type instance Only a :> b = Either a b
 
 
 

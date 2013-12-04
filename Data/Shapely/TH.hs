@@ -38,12 +38,6 @@ import Control.Monad
 --   - The @|@ in multiconstructor ('Coproduct') type declarations is replaced
 --      with @Either@, with a nesting like the above
 --
---   - All direct recursive product terms will be wrapped in an 'AlsoNormal'
---      newtype, giving the normal form its recursive structure. e.g. 
---
---       > data List a = Cons a              (List a)      | Empty 
---       >    ==> Either (    a, (AlsoNormal (List a),()))   () 
---
 -- Note that a 'Product' type in the @Right@ place terminates a composed
 -- 'Coproduct', while a @()@ in the @snd@ place terminates the composed terms
 -- of a @Product@.
@@ -68,30 +62,10 @@ deriveShapely n = do
 drvShapely :: Type -> [Con] -> Dec
 drvShapely t cnstrctrs = 
     InstanceD [] (AppT (ConT ''Shapely) ( t )) [
-         TySynInstD ''Normal [ t ] (
+         TySynInstD ''Normal [ t ] (tNorm bcnstrctrs)
 
-            tNorm bcnstrctrs
-            -- e.g.
-            -- AppT (AppT (ConT 'Either) (TupleT 0)) 
-            --      (AppT (AppT (TupleT 2) (VarT a_0)) 
-            --            (AppT (AppT (TupleT 2) (AppT (ConT 'AlsoNormal) 
-            --                                         (AppT ListT (VarT a_0)))) (TupleT 0)))
-            -- )
-            )
-       , FunD 'to (
-              toClauses id bcnstrctrs
-            -- e.g.
-              -- Clause [ConP GHC.Types.[] []] (NormalB (
-              --       AppE (ConE Data.Either.Left) (ConE GHC.Tuple.())
-              --  )) []
-            -- , Clause [ConP GHC.Types.: [VarP a_1,VarP as_2]] (NormalB (
-              --       AppE (ConE Data.Either.Right) 
-              --          (TupE [VarE a_1,TupE [
-              --               InfixE (Just (ConE Also)) (VarE GHC.Base.$) (Just (AppE (VarE to) (VarE as_2)))
-              --              ,ConE GHC.Tuple.()]]
-              --          )
-              --  )) []
-            )
+       , FunD 'to (toClauses id bcnstrctrs)
+
          -- i.e. constructorsOf = \_->  (the type's constructor(s))
        , ValD (VarP 'constructorsOf) (NormalB $ LamE [WildP] ( constrsOf bcnstrctrs)) []
        ]
@@ -149,30 +123,3 @@ mkType nm = foldl (\c-> AppT c . VarT . varName) (ConT nm)  -- i.e. data Foo a b
 varName :: TyVarBndr -> Name
 varName (PlainTV n) = n
 varName (KindedTV n _) = n
-{- e.g.
-instance Shapely [a] where 
-    -- NOTE: data [] a = [] | a : [a]    -- Defined in `GHC.Types'
-    type Normal [a] = Either () (a,(AlsoNormal [a],()))
-    to []         = Left ()
-    to ((:) a as) = Right (a, (Also $ to as, ()))
-    constructorsOf _ = ([],(\a as-> (:) a (from $ normal as),()))
-
----->
-
-InstanceD [] (AppT (ConT Shapely) (AppT ListT (VarT a_0))) [
-    TySynInstD Normal [AppT ListT (VarT a_0)] (
-        AppT (AppT (ConT Data.Either.Either) (TupleT 0)) 
-             (AppT (AppT (TupleT 2) (VarT a_0)) 
-                   (AppT (AppT (TupleT 2) (AppT (ConT AlsoNormal) 
-                                                (AppT ListT (VarT a_0)))) (TupleT 0))))
-    ,FunD to [
-        Clause [ConP GHC.Types.[] []] (NormalB (AppE (ConE Data.Either.Left) (ConE GHC.Tuple.()))) []
-        ,Clause [ConP GHC.Types.: [VarP a_1,VarP as_2]] (NormalB (AppE (ConE Data.Either.Right) 
-                                                                       (TupE [VarE a_1,TupE [
-                                                                                InfixE (Just (ConE Also)) (VarE GHC.Base.$) (Just (AppE (VarE to) (VarE as_2)))
-                                                                               ,ConE GHC.Tuple.()]]
-                                                                        ))) []
-                                   ]
-       ,ValD (VarP constructorsOf) (NormalB (VarE GHC.Err.undefined)) []
-       ]
-    -}

@@ -1,6 +1,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TemplateHaskell #-}
+
 module Main
     where
 
@@ -13,11 +14,18 @@ module Main
 import Data.Shapely
 import Data.Shapely.Normal as Sh
 import Data.Shapely.Normal.TypeIndexed
+import Data.Shapely.Spine
+
+import Data.Proxy
+import Control.Monad(forM)
+
+import Data.Foldable(toList)
+
+-- TODO: why did we start saying "*_pred" ? Rename "test_*" and some TH to gather all of them in `main`
 
 --  TODO QUESTIONS:
-    -- How does this work with polymorphic terms?
-    -- And what about in Massageable, can we do massage (:: Foo a b) :: Bar b a   ??
-    -- What about the fact that users can instantiate a polymorphic term as AlsoNormal, what happens there?
+    -- How does massageable work with polymorphic terms?
+    --   - can we do massage (x :: Foo a b) :: Bar b a   ??
     -- can we use the "extra method trick"?
     -- what about types like data `Fix f = f (Fix f)`
 
@@ -33,13 +41,55 @@ p = 1 <| 'a' <! True
 
 test_constructorsOfNormal_prod = constructorsOfNormal ('a',('b',())) 'x' 'y'  ==  ('x',('y',()))
 
+{-
 -- CONCATABLE
 concated_p :: (Int,(Char,(Bool,(Int,(Char,(Bool,()))))))
 concated_p = Sh.concat (p, (p, ()))
 
 test_concated_s = ( Sh.concat $ (Right s  :: Either (Either (Int,()) (Either (Char,()) (Bool,())))  (Either (Int,()) (Either (Char,()) (Bool,(String,())))) ) )
                     == Right (Right (Right (Right (Right (True,("true",()))))))
+-}
 
+test_distributeTerm = 
+    let s' = Right (Right (1,(True,("true",(9,())))))
+     in s' == 1 *< s >* 9
+
+multiply1
+  :: Either
+       (Int, (Int, ()))
+       (Either
+          (Int, (Char, ()))
+          (Either
+             (Int, (Bool, (String, ())))
+             (Either
+                (Char, (Int, ()))
+                (Either
+                   (Char, (Char, ()))
+                   (Either
+                      (Char, (Bool, (String, ())))
+                      (Either
+                         (Bool, ([Char], (Int, ())))
+                         (Either
+                            (Bool, ([Char], (Char, ())))
+                            (Bool, ([Char], (Bool, (String, ())))))))))))
+multiply1 = s >*< s
+
+test_multiply2 = p >*< () >*< p == 1 <| 'a' <| True <| 1 <| 'a' <! True
+
+test_multiply_monoid = and $ 
+    [ () >*< p == p
+    , p >*< () == p
+    , () >*< s == s
+    , s >*< () == s
+    , (p >*< p) >*< p == p >*< (p >*< p)
+    , (s >*< p) >*< p == s >*< (p >*< p)
+    , (p >*< s) >*< p == p >*< (s >*< p)
+    , (p >*< p) >*< s == p >*< (p >*< s)
+    , (s >*< s) >*< p == s >*< (s >*< p)
+    , (p >*< s) >*< s == p >*< (s >*< s)
+    , (s >*< s) >*< s == s >*< (s >*< s)
+    ]
+    
 
 -- REVERSABLE
 s_rev :: Either (Bool,(String,())) (Either (Char,()) (Int,()))
@@ -83,6 +133,7 @@ test_unfanin_coprod =
 
 
 -- APPEND
+{-
 appended :: (Int,(Char,(Bool,(Int,(Char,(Bool,()))))))
 appended = p .++. p
 
@@ -94,93 +145,90 @@ appended_s
 appended_s = let s_ss = (Right s) :: Either ( Either (Char,()) (Int,()) )  ( Either (Int,()) (Either (Char,()) (Bool,(String,()))) )
               in append s_ss
                   --  == Right (Right (Right (Right (True,()))))
+-}
 
 -- Homogeneous
-test_toList = Sh.toList (1,(2,(3,()))) == [1,2,3]
+test_toList = ( toList $ toFList (1,(2,(3,()))) ) == [1,2,3]
+test_toList2 =  null $ toList $ toFList ()  
+test_homogenous_inferrence = (\(a,as) -> a == 1) $ fromFList $ toFList (1,(2,(3,())))
 
 -- CARTESIAN-ESQUE
-test_fanout_prod = fanout (head,(tail,(length,()))) [1..3] == (1,([2,3],(3,())))
+test_fanout_prod = fanout (head,(tail,(Prelude.length,()))) [1..3] == (1,([2,3],(3,())))
 
-test_fanout_coprod = fanout (Right $ Left ((+1),(const 'a',())) ) 1  ==  (Right (Left (2,('a',()))) :: Either (Bool,()) (Either (Int,(Char,()))  ()))
 
 -- test of inferrence convenience:
-test_replicate = (3  ==) $ (\(x,(y,(z,())))-> x+y+z) $ Sh.replicate 1
+test_repeat = (3  ==) $ (\(x,(y,(z,())))-> x+y+z) $ Sh.repeat 1
 -- THIS DOESN'T WORK, HOWEVER. any way to restructure fanin to make inferrence possible?
--- replicate_test2 = (3 ==) $ Sh.uncurry (\x y z-> x+y+z) $ Sh.replicate 1
-test_replicate2 = (3 ==) $ Sh.fanin (\x y z-> x+y+z) (Sh.replicate 1 :: (Int,(Int,(Int,()))))
+-- repeat_test2 = (3 ==) $ Sh.uncurry (\x y z-> x+y+z) $ Sh.repeat 1
+test_repeat2 = (3 ==) $ Sh.fanin (\x y z-> x+y+z) (Sh.repeat 1 :: (Int,(Int,(Int,()))))
+
+test_replicate = (\(_,(a,_)) -> a == 2) $ Sh.replicate (Proxy :: Proxy (Either () (Either () ()))) 2
 
 test_extract = let s' :: Either (Int,()) (Either (Int,()) (Int,()))
                    s' = Right (Right (1,()))
                 in extract s'  ==  (1,())
 
+test_factorPrefix = ('a',(True,())) == 
+    (fst $ factorPrefix (Left ('a',(True,('b',()))) :: Either (Char,(Bool,(Char,()))) (Char,(Bool,())) ))
 
--- Massageable tests:
---
--- TODO check recursion with target having multiple *different* but equivalent
--- *massageable* subterms. (or something)
--- TODO test how TIP class works with e.g. (AlsoNormal a, (b, (AlsoNormal
--- c,()))), where AlsoNormal a ~ AlsoNormal c (and where it does not). Are
--- these considered equal, and so product would be order-significant? Should we
--- say that all AlsoNormal subterms are equal for this purpose?
-{- 
-*Data.Shapely.Compose.Massageable> let b = ('a',("hi",()))
+-------- MASSAGEABLE
 
-    -- must not typecheck
-    *Data.Shapely.Compose.Massageable> massageNormal b :: Either (String,(Char,())) (Char,(String,())) 
-    *Data.Shapely.Compose.Massageable> massageNormal () :: Either () ()
 
-    -- must typecheck:
-    *Data.Shapely.Compose.Massageable> massageNormal b :: Either (Int,(Char,())) (String,(Char,()))
-    *Data.Shapely.Compose.Massageable> massageNormal () :: Either () (String,(Char,()))
-    *Data.Shapely.Compose.Massageable> massageNormal () :: Either (String,(Char,())) ()
-    *Data.Shapely.Compose.Massageable> massageNormal b :: Either (Char,(Int,())) (String,(Char,()))
-    *Data.Shapely.Compose.Massageable> massageNormal b :: Either (Char,(String,(Int,()))) (Either () (String,(Char,())))
-    *Data.Shapely.Compose.Massageable> massageNormal b :: Either (String,()) (String,(Char,()))
+mb = ('a',("hi",()))
 
-*Data.Shapely.Compose.Massageable Control.Arrow> let c = (Left ('a',("hi",()))) :: Either (Char,(String,())) ()
+mb_0 :: Either () (String,(Char,()))
+mb_0 = massageNormal () 
+mb_1 :: Either (String,(Char,())) ()
+mb_1 = massageNormal () 
+mb_2 :: Either (Int,(Char,())) (String,(Char,()))
+mb_2 = massageNormal mb 
+mb_3 :: Either (Char,(Int,())) (String,(Char,()))
+mb_3 = massageNormal mb 
+mb_4 :: Either (Char,(String,(Int,()))) (Either () (String,(Char,())))
+mb_4 = massageNormal mb 
+mb_5 :: Either (String,()) (String,(Char,()))
+mb_5 = massageNormal mb 
 
-    *Data.Shapely.Compose.Massageable Control.Arrow> massageNormal c :: Either (Int,()) (Either (String,(Char,())) ())
+mc = Left mb :: Either (Char,(String,())) ()
+
+mc_0 :: Either (Int,()) (Either (String,(Char,())) ())
+mc_0 = massageNormal mc 
     
-    -- must not typecheck:
-    massageNormal c :: Either (Int,()) (Either (String,(Char,())) (String,()))
-
 -- Testing ordered tuples:
-*Data.Shapely.Compose.Massageable Control.Arrow> let d = (Left ('a',('b',(3,())))) :: Either (Char,(Char,(Int,()))) ()
+md = (Left ('a',('b',(3,())))) :: Either (Char,(Char,(Int,()))) ()
 
-    -- must not typecheck
-    massageNormal d :: Either (Char,(Char,(Int,()))) (Either () (Char,(Char,(Int,()))))
-    massageNormal d :: Either (Char,(Char,(Bool,()))) (Either (Int,()) (Char,(Char,(Int,()))))
+md_0 :: Either (Char,(Char,(Bool,()))) (Either () (Char,(Char,(Int,()))))
+md_0 = massageNormal md 
 
-    -- must typecheck:
-    massageNormal d :: Either (Char,(Char,(Bool,()))) (Either () (Char,(Char,(Int,()))))
-    massageNormal d :: Either (Char,(Int,(Char,()))) (Either () (Char,(Char,(Int,())))) == Right $ Right ('a',('b',(3,())))
-    massageNormal ('a',('b',(True,()))) :: Either (Bool,()) (Char,(Char,(Bool,())))
-    massageNormal ('a',('b',())) :: Either (Char,(Char,())) (Either () (Int,()))
+md_1_pred = ( massageNormal md :: Either (Char,(Int,(Char,()))) (Either () (Char,(Char,(Int,())))) ) == (Right $ Right ('a',('b',(3,()))))
+md_2_pred = ( massageNormal ('a',('b',(True,()))) :: Either (Bool,()) (Char,(Char,(Bool,()))) ) == (Right ('a',('b',(True,()))))
+md_3_pred = ( massageNormal ('a',('b',())) :: Either (Char,(Char,())) (Either () (Int,())) ) == (Left ('a',('b',())))
 
+{- 
+-- must not typecheck
+massageNormal mb :: Either (String,(Char,())) (Char,(String,())) 
+massageNormal () :: Either () ()
+massageNormal mc :: Either (Int,()) (Either (String,(Char,())) (String,()))
     
+-- ordered product style
+massageNormal md :: Either (Char,(Char,(Int,()))) (Either () (Char,(Char,(Int,()))))
+massageNormal md :: Either (Char,(Char,(Bool,()))) (Either (Int,()) (Char,(Char,(Int,()))))
+-}
+
 -- Testing recursion:
+mr_id_pred = massage "foo" == "foo"
 
+data OrderedRec = OCons Int Int OrderedRec | ONull deriving Eq
+$(deriveShapely ''OrderedRec)
+orderedr_id_pred = massage (OCons 1 1 (OCons 2 2 ONull)) == (OCons 1 1 (OCons 2 2 ONull))
 
-    -- [a] with both order of products and coproducts reversed:
-    data Tsil a = Snoc (Tsil a) a
-              | Lin
-              deriving Show
+-- [a] with both order of products and coproducts reversed:
+data Tsil a = Snoc (Tsil a) a
+          | Lin
+          deriving Eq
+$(deriveShapely ''Tsil)
+m_unorderedr_pred = massage "123" == Snoc (Snoc (Snoc Lin '3') '2') '1'
 
-    instance Shapely (Tsil a) where
-        type Normal (Tsil a) = Either (AlsoNormal (Tsil a), (a, ())) ()
-        to (Snoc l n) = Left (Also . to $ l , (n ,()))
-        to Lin = Right ()
-        from (Right ()) = Lin
-        from (Left (an,(n,()))) = Snoc (from . normal $ an) n
-        
-        constructorsOf _ = (\an n-> Snoc (from . normal $ an) n, (Lin,()))
-      --constructorsOf _ = (Snoc,(Lin,()))  -- recursive!
-        or :
-        from = fanin constructors . nonrecursive
-
-    massageRec "123"  :: Tsil Char
-
- -}
 
 
 -------- TYPE-INDEXED 
@@ -230,8 +278,102 @@ $(deriveShapely ''D)
 $(deriveShapely ''E)
 $(deriveShapely ''F)
 
--- RECURSIVE:
--- TODO:
+-- RECURSIVE: -------
+data Li = Em | Co Char Li deriving Eq
+$(deriveShapely ''Li)
+
+th_rec_pred = let a = "works" 
+                  b = Co 'w' $ Co 'o' $ Co 'r' $ Co 'k' $ Co 's' $ Em
+               in coerce a == b && coerce b == a
+
+
+data SimpleTree a = SBr (SimpleTree a) a (SimpleTree a)
+                     | SEm
+                     deriving (Eq,Show)
+$(deriveShapely ''SimpleTree)
+data LRTree a = LRTop (LTree a) a (RTree a)
+                 | LRTopEm
+data LTree a = LBr (LTree a) a (RTree a)
+                | LEm
+data RTree a = RBr (LTree a) a (RTree a)
+                | REm
+$(fmap Prelude.concat $ forM [''LRTree , ''LTree , ''RTree ] deriveShapely)
+
+-- test deeper recursive structure: 
+th_rec_multi_pred = 
+    let lrTree = LRTop (LBr LEm 'b' REm) 'a' (RBr LEm 'b' REm)
+      --st0 = (Proxy :: Proxy (LRTree Char), (Proxy :: Proxy (LTree Char), (Proxy :: Proxy (RTree Char), ())))
+        st0 = spine :: LRTree Char :-: LTree Char :-! RTree Char
+        st1 = spine :: LRTree :-: LTree :-! RTree
+     in coerceWith st0 lrTree == SBr (SBr SEm 'b' SEm) 'a' (SBr SEm 'b' SEm) &&
+         coerceWith st1 lrTree == SBr (SBr SEm 'b' SEm) 'a' (SBr SEm 'b' SEm)
+
+
+-- These demonstrate the need for parameter-agnostic spine elements: our type
+-- is recursive, with the paramters flip-flopping. Lots of other examples.
+data Simple2Tree a b = S2Br (Simple2Tree b a) a b (Simple2Tree b a)
+                     | S2Em
+                     deriving (Eq,Show)
+$(deriveShapely ''Simple2Tree)
+data LR2Tree a b = LR2Top (L2Tree b a) a b (R2Tree b a)
+                 | LR2TopEm
+data L2Tree a b = L2Br (L2Tree b a) a b (R2Tree b a)
+                | L2Em
+data R2Tree a b = R2Br (L2Tree b a) a b (R2Tree b a)
+                | R2Em
+$(fmap Prelude.concat $ forM [''LR2Tree , ''L2Tree , ''R2Tree ] deriveShapely)
+
+-- test deeper recursive structure: 
+th_rec_multi_parameter_agnostic_pred = 
+    let lrTree = LR2Top (L2Br (L2Br L2Em 'c' True R2Em) False 'b' R2Em) 'a' True (R2Br L2Em False 'b' R2Em)
+        st = spine :: LR2Tree :-: L2Tree :-! R2Tree
+        -- this avoids enumerating a/b, b/a variants for all types:
+        -- st = spine :: LR2Tree Char Bool :-: L2Tree Char Bool :-: R2Tree Char Bool :-: 
+        --                LR2Tree Bool Char :-: L2Tree Bool Char :-! R2Tree Bool Char
+     in coerceWith st lrTree == S2Br (S2Br (S2Br S2Em 'c' True S2Em) False 'b' S2Em) 'a' True (S2Br S2Em False 'b' S2Em)
+
+-- 'coerce' should handle regular recursion with parameter shuffling, because
+-- it uses Unapplied:
+data RegRecParams1 a b = RRPCons1 a b (RegRecParams1 b a) | RRPNil1 deriving (Eq,Show)
+data RegRecParams2 a b = RRPCons2 a b (RegRecParams2 b a) | RRPNil2 deriving (Eq,Show)
+$(fmap Prelude.concat $ forM [''RegRecParams1, ''RegRecParams2] deriveShapely)
+
+th_rec_reg_param_swapping_coerce_pred = 
+    (coerce $ RRPCons1 'a' True RRPNil1) == RRPCons2 'a' True RRPNil2
+
+
+-- POLYMORPHISM/INFERRENCE-PRESERVING STUFF WE MIGHT LIKE TO SUPPORT SOMEHOW
+-- ------------------------------
+-- TODO test these after sprucing up type funcs with incidental overlapping instances
+{-
+th_rec_reg_param_swapping_coerce_pred = 
+    (coerce RRPNil1) == (RRPNil2 :: RegRecParams2 Char Bool)
+
+th_rec_reg_poly_param_swapping_coerce_pred = 
+    let (x,y) = (RRPNil1,coerce x) :: (RegRecParams1 a b, RegRecParams2 a b)
+     in y == RRPNil2
+    -- But note: this is also (at the top level) ambiguous:
+    -- foo = RRPNil2 == RRPNil2
+
+th_rec_reg_poly_param_swapping_coerce_pred :: (RegRecParams1 a b, RegRecParams2 a b)
+th_rec_reg_poly_param_swapping_coerce_pred = 
+    let (x,y) = (RRPNil1, coerce x) 
+     in (x,y)
+
+-- if we can make FactorPrefix look like:
+-- class (Product ab)=> FactorPrefix ab abcs cs | ab abcs -> cs, ab cs -> abcs, abcs cs -> ab where
+-- we'd get better inferrence, supporting:
+test_factorPrefix2 = ( ('a',(True,())) , (Left ('b',())) :: Either (Char,()) () ) == 
+    (factorPrefix (Left ('a',(True,('b',())))  ))
+
+test_toList2 = ( toList $ toFList () ) == []
+
+-- currently we need: _4th `asLength` as
+fanin (1,(2,(3,(4,())))) _4th
+
+
+-}
+
 
 
 {-

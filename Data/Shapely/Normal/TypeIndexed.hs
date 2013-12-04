@@ -1,5 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses , FlexibleInstances, FunctionalDependencies , FlexibleContexts , TypeFamilies
-  , OverlappingInstances , UndecidableInstances #-}
+  , OverlappingInstances , UndecidableInstances 
+  , DataKinds  -- for True/False
+  #-}
 module Data.Shapely.Normal.TypeIndexed (
       HasAny(..)
     , viewType , viewTypeOf
@@ -27,7 +29,7 @@ import Data.Shapely.Classes
 
 -- We borrow this type-equality comparison trick from Oleg: 
 --   http://okmij.org/ftp/Haskell/ConEQ.hs
-class HasAny a l b | a l -> b
+class HasAny a l (b::Bool) | a l -> b
 
 instance HasAny a (a,l) True
 instance (HasAny a l b)=> HasAny a (x,l) b
@@ -79,7 +81,7 @@ viewTypeOf = const . viewType
 
 
 -- | The non-empty, 'Product' or 'Coproduct' @l@, out of which we can pull the
--- unique type @a@, leaving @l'@.
+-- first occurrence of type @a@, leaving as the 'Tail' @l'@.
 class HavingType a l l' | a l -> l' where
     -- | Shift the first occurrence of type @a@ to the 'Head' of @l@.
     viewFirstType :: l -> NormalConstr l a l'

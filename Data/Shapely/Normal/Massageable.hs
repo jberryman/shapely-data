@@ -1,9 +1,13 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances,FunctionalDependencies #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE OverlappingInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE ScopedTypeVariables #-}  -- for "advanced overlap" solution
+{-# LANGUAGE 
+    MultiParamTypeClasses, FlexibleInstances, FunctionalDependencies
+  , TypeFamilies
+  , UndecidableInstances 
+  , OverlappingInstances
+  , FlexibleContexts
+  , ScopedTypeVariables      -- for "advanced overlap" solution
+  , EmptyDataDecls 
+  , DataKinds  -- for True/False
+  #-}
 module Data.Shapely.Normal.Massageable
     where
 
@@ -12,43 +16,16 @@ import Data.Shapely.Normal.Classes
 import Data.Shapely.Normal.TypeIndexed hiding(viewType)
 import Data.Shapely.Bool
 import Data.Shapely.Category(swapFront)
+import Data.Shapely.Utilities
 
 import Control.Arrow((***))
+import Data.Proxy
 
 -- An internal module mostly to keep use of OverlappingInstances isolated
 
---TODO NOTES:
--- check if it's necessary to pass around outer type for AlsoNormal subterms
---    - currently fails if *any* AlsoNormal's not corresponding to direct top-level recursion
---    - the set of types to AlsoNormal is known at shspelyDerive time, and could be used in a new method.
---      - 
---    - if we had another method that marked AlsoNormal fields (and sub-fields?)
---      - we could implement 'from' in terms of 'constructorsOf' (which would
---        now be the real constructors) and this new method
---
--- in source we see an AlsoNormal x
---    we need to get *the only* term 'y' in target where 
---       MassageableNormal (Normal y) (Normal x)
---         where the target is a different AlsoNormal
---           requires a MassageableNormalPred class. Is that doable? Could it lead to 
---    or where..
---       from ax = y
---         where the target is an opaque term with a Shapely instance
---           requires ShapelyPred (impossible)
--- This means either 
---
--- We could insist on single-recursive, but not necessarily top-level recursive:
---   - new type function for the recursive child types
---   - perhaps could default it to the type of Shapely instance arg in class dec
---   - ???
---   - then we force people to use inlining, etc. to make a type directly recursive?
--- ...But this means that we only support wrapper type with recursive terms as
--- direct subterms.
---
--- Perhaps a new method where subterms in which to "descend" are given as a
--- list in order-to-be-traversed, and then we can match corresponding terms in
--- source and target?
---
+--TODO:
+--   - support more complex recursive structure, maybe requiring user to pass a
+--      list of corresponding recursive pairs in source and target
 
 
 -- We need to be able to choose instances based on *whether* a type is a member
@@ -67,7 +44,7 @@ import Control.Arrow((***))
 -- combining the "functional" class with the predicate class. True instances
 -- have real working method instances, and False instances never make it past
 -- the typechecker.
-class TypeIndexPred a l l' b | a l -> l', a l l' -> b where
+class TypeIndexPred a l l' (b::Bool) | a l -> l', a l l' -> b where
     -- pull the only value of type 'a' out of 'l' yielding 'l''
     viewType :: l -> (a,l')
     viewType = error "viewType: Method called in False predicate instance"
@@ -85,7 +62,7 @@ instance (False ~ false, Void ~ void)=> TypeIndexPred a () void false
 instance HasAny a Void False
 
 
-class IsAllUnique x b | x -> b
+class IsAllUnique x (b::Bool) | x -> b
 instance (true ~ True)=> IsAllUnique () true
 instance (IsAllUnique xs tailUnique
          , HasAny x xs xInXs
@@ -96,7 +73,7 @@ instance (IsAllUnique xs tailUnique
 
 ---------- wrapper classes we export: ----------
 
--- a flag for 'MassageableNormalRec' indicating we should not recurse into 'AlsoNormal'
+-- a flag for 'MassageableNormalRec' indicating we should not recurse into
 -- subterms. No need to export
 data FLAT = FLAT
 
@@ -108,7 +85,7 @@ class MassageableNormal x y where
     massageNormal :: x -> y
 
 instance (MassageableNormalRec FLAT FLAT x y)=> MassageableNormal x y where
-    massageNormal = massageNormalRec (FLAT,FLAT)
+    massageNormal = massageNormalRec (Proxy :: Proxy FLAT, Proxy :: Proxy FLAT)
 
 -- | /DISCLAIMER: this function is experimental (although it should be correct) and the behavior may change in the next version, based on user feedback. Please see list of limitations below and send feedback if you have any./
 --
@@ -129,7 +106,7 @@ instance (MassageableNormalRec FLAT FLAT x y)=> MassageableNormal x y where
 --     be significant and require a target product with the same ordering. The
 --     mapping between terms in source and target products is a bijection.
 --
---   - We map product subterms @'AlsoNormal' a@ with @AlsoNormal b@, by
+--   - We map source product subterm @a@s with target @b@ subterms, by
 --     recursively applying 'massage' (this is the only exception to the above,
 --     and the only place where we inspect 'Product' subterms).
 --
@@ -152,17 +129,16 @@ class Massageable a b where
 instance (Shapely a, Shapely b
          , MassageableNormalRec a b (Normal a) (Normal b)
          )=> Massageable a b where
-    massage a = let b = massageNormalRec (undefined `asTypeOf` a, undefined `asTypeOf` b) $$ a
-                    ($$) f = from . f . to -- TODO or move from Data.Shapely
+    massage a = let b = massageNormalRec (return a, return b) $$ a
                  in b
-    
+
 
 ---------- implementation, left unexported: ----------
 
 
 class MassageableNormalRec pa pb na nb where
     -- keep method hidden:
-    massageNormalRec :: (pa, pb)  -- proxies for 'a' and 'b' to support recursion
+    massageNormalRec :: (Proxy pa, Proxy pb)  -- proxies for 'a' and 'b' to support recursion
                      -> na -> nb  -- (Normal a) is massaged to (Normal b)
 
 instance (MassageableNormalRec a b s t, MassageableNormalRec a b ss t)=> MassageableNormalRec a b (Either s ss) t where
@@ -172,42 +148,43 @@ instance ( IsAllUnique (x,xs) isTIPStyle
          , ProductToProductPred isTIPStyle a b (x,xs) xss isHeadMassageable
          , ProductToCoproduct isHeadMassageable a b (x, xs) (Either xss yss)
     )=> MassageableNormalRec a b (x,xs) (Either xss yss) where
-    massageNormalRec = massageProdCoprod (undefined::isHeadMassageable)
-instance ( IsAllUnique () isTIPStyle  -- TODO THE BUG IS HERE
+    massageNormalRec = massageProdCoprod (Proxy::Proxy isHeadMassageable)
+instance ( IsAllUnique () isTIPStyle
          , ProductToProductPred isTIPStyle a b () xss isHeadMassageable
          , ProductToCoproduct isHeadMassageable a b () (Either xss yss)
     )=> MassageableNormalRec a b () (Either xss yss) where
-    massageNormalRec = massageProdCoprod (undefined::isHeadMassageable)
+    massageNormalRec = massageProdCoprod (Proxy::Proxy isHeadMassageable)
 
 instance ( Product xs, Product ys
          , IsAllUnique xs isTIPStyle
          -- Only "real" instances of ProductToProductPred will typecheck:
          , ProductToProductPred isTIPStyle a b xs ys True
     )=> MassageableNormalRec a b xs ys where
-    massageNormalRec ab = massageProdProd (undefined::isTIPStyle, ab)
+    massageNormalRec ab = massageProdProd (Proxy::Proxy isTIPStyle, ab)
 
-alsoMassage :: MassageableNormalRec pa pb (Normal pa) (Normal pb)=> (pa,pb) -> AlsoNormal pa -> AlsoNormal pb
-alsoMassage ab = Also . massageNormalRec ab . normal
+alsoMassage :: (Shapely pa, Shapely pb
+            )=> MassageableNormalRec pa pb (Normal pa) (Normal pb)=> (Proxy pa,Proxy pb) -> pa -> pb
+alsoMassage ab a = massageNormalRec ab $$ a
 
 
 ------------------------------------------------------------------------------
 -- MASSAGING PRODUCTS TO COPRODUCTS
 
-class ProductToCoproduct isHeadMassageable pa pb s t where
-    massageProdCoprod :: isHeadMassageable -> (pa,pb) -> s -> t
+class ProductToCoproduct (isHeadMassageable::Bool) pa pb s t where
+    massageProdCoprod :: Proxy isHeadMassageable -> (Proxy pa, Proxy pb) -> s -> t
 
 instance ( IsAllUnique xss isTIPStyle
          , ProductToProductPred isTIPStyle pa pb xss xs True
          -- insist unambiguous, else fail typechecking:
          , AnyMassageable pa pb xss ys False
          )=> ProductToCoproduct True pa pb xss (Either xs ys) where
-    massageProdCoprod _ ab = Left . massageProdProd (undefined :: isTIPStyle,ab)
+    massageProdCoprod _ ab = Left . massageProdProd (Proxy :: Proxy isTIPStyle,ab)
 
 instance (MassageableNormalRec pa pb yss ys)=> ProductToCoproduct False pa pb yss (Either xs ys) where
     massageProdCoprod _ ab = Right . massageNormalRec ab
 
 -- helper predicate class:
-class AnyMassageable pa pb xss yss b | pa pb xss yss -> b
+class AnyMassageable pa pb xss yss (b :: Bool) | pa pb xss yss -> b
 instance ( IsAllUnique xss isTIPStyle
          , ProductToProductPred isTIPStyle pa pb xss xs headMassageable
          , AnyMassageable pa pb xss ys anyTailMassageable
@@ -223,8 +200,8 @@ instance ( IsAllUnique xss isTIPStyle
 
 -- combination Predicate/functional class. "False" instances are defined where we
 -- would normally have not defined an instance.
-class ProductToProductPred isTIPStyle pa pb s t b | isTIPStyle pa pb s t -> b where
-    massageProdProd :: (isTIPStyle, (pa,pb)) -> s -> t
+class ProductToProductPred (isTIPStyle::Bool) pa pb s t (b::Bool) | isTIPStyle pa pb s t -> b where
+    massageProdProd :: (Proxy isTIPStyle, (Proxy pa, Proxy pb)) -> s -> t
     massageProdProd = error "massageProdProd: Method called in False predicate instance"
 
 ------------ INSTANCES: ------------
@@ -245,26 +222,31 @@ instance ( ProductToProductPred True pa pb xxs' ys tailsTIPMassageable
 -- equivalent recursive 'a' term out of the source tuple, insisting that they also
 -- be massageable. Inductive proof?
 instance ( ProductToProductPred True pa pb xxs' ys tailsTIPMassageable
-         , TypeIndexPred (AlsoNormal pa) (x,xs) xxs' xxsHasRecursiveA
+         , TypeIndexPred pa (x,xs) xxs' xxsHasRecursiveA
          , And tailsTIPMassageable xxsHasRecursiveA b
          , MassageableNormalRec pa pb (Normal pa) (Normal pb)
-    )=> ProductToProductPred True pa pb (x,xs) (AlsoNormal pb, ys) b where
+         , Shapely pa, Shapely pb
+    )=> ProductToProductPred True pa pb (x,xs) (pb, ys) b where
     massageProdProd ps = (alsoMassage (snd ps) *** massageProdProd ps) . viewType 
-    -- TODO: or make a massageable instance for AlsoNormal?
 
 
 ---- order-preserving style: ----
 
+-- when massaging ordered tuples we can simply match equivalent recursive
+-- massageable terms on each fst position:
+instance ( ProductToProductPred False pa pb ys ys' b
+         , MassageableNormalRec pa pb (Normal pa) (Normal pb)
+         , Shapely pa, Shapely pb
+    )=> ProductToProductPred False pa pb (pa, ys) (pb, ys') b where
+    massageProdProd ps = alsoMassage (snd ps) *** massageProdProd ps
+
 instance (ProductToProductPred False pa pb ys ys' b
     )=> ProductToProductPred False pa pb (x,ys) (x,ys') b where
     massageProdProd = fmap . massageProdProd
-
--- when massaging ordered tuples we can simply match equivalent AlsoNormal
--- terms on each fst position:
-instance ( ProductToProductPred False pa pb ys ys' b
-         , MassageableNormalRec pa pb (Normal pa) (Normal pb)
-    )=> ProductToProductPred False pa pb (AlsoNormal pa, ys) (AlsoNormal pb, ys') b where
-    massageProdProd ps = alsoMassage (snd ps) *** massageProdProd ps
+-- TO AVOID AMBIGUITY WITH OVERLAP:
+instance (ProductToProductPred False x x ys ys' b
+    )=> ProductToProductPred False x x (x,ys) (x,ys') b where
+    massageProdProd = fmap . massageProdProd
 
 
 ------------ NON-INSTANCES: ------------
