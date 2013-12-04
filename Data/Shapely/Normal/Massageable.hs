@@ -49,7 +49,7 @@ class TypeIndexPred a l l' (b::Bool) | a l -> l', a l l' -> b where
     viewType :: l -> (a,l')
     viewType = error "viewType: Method called in False predicate instance"
 
-instance (HasAny a l lHasA, Not lHasA b)=> TypeIndexPred a (a,l) l b where
+instance (HasAny a l lHasA, Not lHasA ~ b)=> TypeIndexPred a (a,l) l b where
     viewType = id
 
 instance (TypeIndexPred a l l' b, xl' ~ (x,l'))=> TypeIndexPred a (x,l) xl' b where
@@ -66,8 +66,7 @@ class IsAllUnique x (b::Bool) | x -> b
 instance (true ~ True)=> IsAllUnique () true
 instance (IsAllUnique xs tailUnique
          , HasAny x xs xInXs
-         , Not xInXs xNotInXs
-         , And tailUnique xNotInXs b
+         , And tailUnique (Not xInXs) ~ b
          )=> IsAllUnique (x,xs) b
 
 
@@ -188,7 +187,7 @@ class AnyMassageable pa pb xss yss (b :: Bool) | pa pb xss yss -> b
 instance ( IsAllUnique xss isTIPStyle
          , ProductToProductPred isTIPStyle pa pb xss xs headMassageable
          , AnyMassageable pa pb xss ys anyTailMassageable
-         , Or headMassageable anyTailMassageable b
+         , Or headMassageable anyTailMassageable ~ b
          )=> AnyMassageable pa pb xss (Either xs ys) b
 instance ( IsAllUnique xss isTIPStyle
          , ProductToProductPred isTIPStyle pa pb xss xs b
@@ -214,7 +213,7 @@ instance ProductToProductPred either pa pb () () True where
 
 instance ( ProductToProductPred True pa pb xxs' ys tailsTIPMassageable
          , TypeIndexPred y (x,xs) xxs' xxsHasY
-         , And tailsTIPMassageable xxsHasY b
+         , And tailsTIPMassageable xxsHasY ~ b
     )=> ProductToProductPred True pa pb (x,xs) (y,ys) b where
     massageProdProd ps = fmap (massageProdProd ps) . viewType
 
@@ -223,7 +222,7 @@ instance ( ProductToProductPred True pa pb xxs' ys tailsTIPMassageable
 -- be massageable. Inductive proof?
 instance ( ProductToProductPred True pa pb xxs' ys tailsTIPMassageable
          , TypeIndexPred pa (x,xs) xxs' xxsHasRecursiveA
-         , And tailsTIPMassageable xxsHasRecursiveA b
+         , And tailsTIPMassageable xxsHasRecursiveA ~ b
          , MassageableNormalRec pa pb (Normal pa) (Normal pb)
          , Shapely pa, Shapely pb
     )=> ProductToProductPred True pa pb (x,xs) (pb, ys) b where

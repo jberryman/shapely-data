@@ -88,9 +88,6 @@ import Data.Proxy
 --      - see about any '*As' variants that might be useful, for type inferrence
 --          - see tests.hs
 --      - implement FunctorOn
---      - look into type families w/ coincident overlap for SHapely.Bool module
---           http://typesandkinds.wordpress.com/2013/04/29/coincident-overlap-in-type-families/
---           - also try to see if / where this might improve inferrence
 --      - make sure we know exactly how OverlappingInstances and
 --        UndecidableInstances are working and that they're safe here
 --          - double check all uses (remove / recompile / assess)
