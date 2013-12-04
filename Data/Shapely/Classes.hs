@@ -78,8 +78,9 @@ instance Shapely (Either x y) where
   
 -- The Normal form of a type is just a simple unpacking of the constructor
 -- terms, and doesn't do anything to express recursive structure. But this
--- simple type function lets us work with different recursive structure in
--- additional classes, like Isomorphic.
+-- simple type function gives us what we need to make use of recursive
+-- structure, e.g. in Isomorphic, or by converting to a pattern functor that
+-- can be turned into a fixed point with with FunctorOn.
 instance Shapely [a] where 
     -- NOTE: data [] a = [] | a : [a]    -- Defined in `GHC.Types'
     type Normal [a] = Either () (a,([a],()))
@@ -87,7 +88,10 @@ instance Shapely [a] where
     to ((:) a as) = Right (a, (as, ()))
     constructorsOf _ = ([],((:),()))
 
----- TODO  derive other instances of Prelude / etc. types here
+---- Additional instances are derived automatically in Data.Shapely
+
+
+
 
 {-
 -- | A wrapper for recursive child occurences of a 'Normal'-ized type

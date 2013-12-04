@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}   -- necessary for Shapely Generics instances
 {-# LANGUAGE TypeOperators #-}       -- for our cons synonym
+{-# LANGUAGE TemplateHaskell #-}
 -- TODO clean up above
 module Data.Shapely (
 -- TODO: move this to the .cabal file
@@ -45,4 +46,25 @@ import Data.Shapely.Normal.Massageable
 import Data.Shapely.Normal.Isomorphic
 import Data.Shapely.Utilities
 
+import Control.Applicative
 
+$(concat <$> mapM deriveShapely [ 
+      ''(,,,,,,,,,,,,,,)
+    , ''(,,,,,,,,,,,,,) 
+    , ''(,,,,,,,,,,,,) 
+    , ''(,,,,,,,,,,,) 
+    , ''(,,,,,,,,,,) 
+    , ''(,,,,,,,,,) 
+    , ''(,,,,,,,,) 
+    , ''(,,,,,,,) 
+    , ''(,,,,,,) 
+    , ''(,,,,,) 
+    , ''(,,,,) 
+    , ''(,,,) 
+    , ''(,,) 
+    , ''Ordering
+    , ''Maybe
+    , ''Bool
+    ] )
+
+-- TODO derive instances for all appropriate in "base"

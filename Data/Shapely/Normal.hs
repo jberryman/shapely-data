@@ -91,7 +91,6 @@ import Data.Proxy
 --      - make sure we know exactly how OverlappingInstances and
 --        UndecidableInstances are working and that they're safe here
 --          - double check all uses (remove / recompile / assess)
---      - derive Shapely instances for all built-in types
 --      - documentation:
 --          - notes about Algebraic stuff
 --          - fix 'limitations' section
