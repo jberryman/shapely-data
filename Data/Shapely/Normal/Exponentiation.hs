@@ -8,9 +8,9 @@ module Data.Shapely.Normal.Exponentiation
 import Data.Shapely.Normal.Classes
 import Control.Arrow((&&&))
 
--- | The algebraic normal form exponent @abc@ distributed over the base @r@.
+-- | The algebraic normal form 'Exponent' @abc@ distributed over the base @r@.
 type family abc :=>-> r
--- | The exponent @r@ distributed over the algebraic normal form @abc@.
+-- | The exponent @r@ distributed over the algebraic normal form 'Base' @abc@.
 type family r :->=> abc
     
 -- TODO document with nice math symbols
@@ -80,7 +80,8 @@ instance (Base bs)=> Base (a,bs) where
 --
 -- And for fetching an element at an index...
 --
--- >>> fanin (1,(2,(3,(4,())))) _4th
+-- >>> let ns = (1,(2,(3,(4,()))))
+-- >>> fanin ns (_4th `'ofLength'` ns)
 -- 4
 instance (EitherTail bs, Exponent bs, Exponent (AsTail bs), Exponent a)=> Exponent (Either a bs) where
     fanin (f,fs) = eitherTail (fanin f) (fanin fs)

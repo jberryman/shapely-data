@@ -23,7 +23,7 @@ compatibility issues when this module is improved.
 -}
       Only(..)
 
-    -- * Operations on 'Product's and 'Coproduct's
+    -- * Reordering 'Product' and 'Coproduct' terms
     , Reversable(..)
     , Shiftable(..)
     , viewr
@@ -32,8 +32,9 @@ compatibility issues when this module is improved.
     , (:*:), (:*!), (:+:)
 
     -- * Operations on Products
-    , Homogeneous(..), FixedList(), ($$:), replicate
-    -- ** Construction Convenience Operators
+    -- ** Homogeneous (list-like) products
+    , Homogeneous(..), FixedList(), (!!), ($$:), replicate
+    -- ** Construction convenience operators
     , single
     , (|>), (<|), (<!)
 
@@ -51,21 +52,18 @@ compatibility issues when this module is improved.
     
     -- ** Exponentiation
     -- | In the algebra of algebraic datatypes, @(->)@ is analogous to
-    -- exponentiation, where @b^a (TODO notation) == (a -> b). Lots of useful
-    -- and simple functions fall out from simply translating the algebraic laws
-    -- of exponents to haskell.
+    -- exponentiation, where b^a (TODO notation) == @(a -> b)@. The operations
+    -- here come from translating the algebraic laws of exponents to their
+    -- equivalents on ADTs.
     , Exponent(..), (:=>->), Base(..), (:->=>)
     , constructorsOfNormal
 
     -- ** Constants
     , Constant(..), Length(..), Replicated(..)
-  --, _1st, _2nd, _3rd, _4th, _5th, _6th, _7th, _8th, _9th, _last --TODO or _1, _2, ... or _1th, _2th, etc
-  --, ofLength (e.g. _2nd `ofLength`)
-  --     but should this take a /Product/ as argument? 
-  --     Answer: where are we using these constants?
-  --         - indexing via exponential form
-  --         - indexing into List (labeled with a Constant)
-  --         - 
+    , One, Two, Three, Four, Five, Six, Seven
+    , OneOrMore(..), _2nd, _3rd, _4th, _5th, _6th, _7th --TODO or _1, _2, ... or _1th, _2th, etc
+    -- *** Utilites
+    , length, ofLength
   --, _+_ , succ, (math with ordinal numbers; this would add the ordinal representations)
     ) where
 
@@ -76,7 +74,7 @@ import Data.Shapely.Normal.Massageable
 import Data.Shapely.Normal.Exponentiation
 import Control.Applicative() -- Functor instances for (,) and Either
 
-import Prelude hiding (repeat,replicate,concat,reverse, map)
+import Prelude hiding ((!!),repeat,replicate,concat,reverse, map, length)
 import qualified Prelude 
 
 import Data.Foldable(Foldable)
@@ -84,18 +82,12 @@ import Data.Traversable(Traversable)
 import Data.Proxy
 
 -- TODO:
---      - look at which functions are algebraic, re-order, put under -- * Algebraic heading
---      - add missing functions
---      - consider renaming of all
---      - look over notes again, see if we missed anything
+--      - consider renaming:
+--          - Coproduct -> Sum
 --      - add in unicode math stuff in docs.
 --      - see about any '*As' variants that might be useful, for type inferrence
+--          - see tests.hs
 --      - implement FunctorOn
---      - create a length-indexed list (opaque for safety) that is, perhaps
---        Foldable/Traversable and can be converted from and back into a Product.
---        Maybe replace toList with Foldable.toList
---        add a safe index function
---
 --      - look into type families w/ coincident overlap for SHapely.Bool module
 --           http://typesandkinds.wordpress.com/2013/04/29/coincident-overlap-in-type-families/
 --           - also try to see if / where this might improve inferrence
@@ -446,6 +438,7 @@ constructorsOfNormal :: (Exponent r)=> r -> (r :=>-> r)
 constructorsOfNormal r = unfanin (id . (`asTypeOf` r))
 
 
+
 -- NOTE: must not export constructor, 
 --       must not derive instances that can modify length
 -- | An opaque wrapper type allowing application of useful class methods on
@@ -462,13 +455,18 @@ instance (as ~ Replicated len a, Homogeneous a as, Show as, len ~ Length as)=> S
 --       length of the empty product in FixedList. For now we'll not export this.
 data Zero
 
+
+length :: (Product as)=> as -> Proxy (Length as)
+length _ = Proxy
+
+ofLength :: (Length as ~ c)=> c -> as -> c
+ofLength = const
+
 type family Length t
 type instance Length () = Zero                              -- | 0
 type instance Length (a,()) = ()                            -- | 1
 type instance Length (a,(b,bs)) = Either () (Length (b,bs)) -- | 1 + (length tail)
 
--- TODO replicate should take a Proxy (Constant a)?
--- replicate :: (Constant c)=> Proxy c -> a -> Replicated c a
 type family Replicated len a
 type instance Replicated Zero a = ()
 type instance Replicated () a = (a,())
@@ -485,6 +483,9 @@ infixr 0 $$:
      (FixedList len a -> FixedList len b) -> as -> bs
 ($$:) f = fromFList . f . toFList
     
+-- | Replicate @a@, producing a 'Product' of length @len@.
+--
+-- > replicate _ = 'repeat'
 replicate :: (Homogeneous a as, as ~ Replicated len a, len ~ Length as )=> 
               Proxy len -> a -> Replicated len a
 replicate _ = repeat
@@ -564,9 +565,43 @@ instance (FactorPrefix () abc, FactorPrefix () abcs
     factorPrefix (Left abc) = fmap Left $ factorPrefix abc 
     factorPrefix (Right abcs) =  fmap Right $ factorPrefix abcs
 
+-- | Return the term at the 1-based index @n@ of the 'Homogeneous' 'Product' @xs@.
+--
+-- > xs !! n = 'fanin' xs (n `'ofLength'` xs)
+(!!) :: (as ~ (n :=>-> r), n ~ Length as, Exponent n) => as -> n -> r
+xs !! n = fanin xs (n `ofLength` xs)
+
 -- | 'Coproduct's of the unit type are our constants in the algebra of ADTs.
 -- They are cardinal numbers at the type level (length), while their /values/
 -- are ordinal numbers (indicating position).
 class Constant c
 instance Constant ()
 instance (Constant c)=> Constant (Either () c)
+
+type One = ()
+type Two = One :+: One
+type Three = One :+: Two
+type Four = One :+: Three
+type Five = One :+: Four
+type Six = One :+: Five
+type Seven = One :+: Six
+
+class Constant c => OneOrMore c where
+    _1st :: c
+instance OneOrMore () where
+    _1st = ()
+instance (Constant c)=> OneOrMore (Either () c) where
+    _1st = Left ()
+
+_2nd :: (OneOrMore c)=> One :+: c
+_2nd = Right $ _1st
+_3rd :: (OneOrMore c)=> One :+: One :+: c
+_3rd = Right $ _2nd
+_4th :: (OneOrMore c)=> One :+: One :+: One :+: c
+_4th = Right $ _3rd
+_5th :: (OneOrMore c)=> One :+: One :+: One :+: One :+: c
+_5th = Right $ _4th
+_6th :: (OneOrMore c)=> One :+: One :+: One :+: One :+: One :+: c
+_6th = Right $ _5th
+_7th :: (OneOrMore c)=> One :+: One :+: One :+: One :+: One :+: One :+: c
+_7th = Right $ _6th

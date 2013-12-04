@@ -153,7 +153,7 @@ test_toList2 =  null $ toList $ toFList ()
 test_homogenous_inferrence = (\(a,as) -> a == 1) $ fromFList $ toFList (1,(2,(3,())))
 
 -- CARTESIAN-ESQUE
-test_fanout_prod = fanout (head,(tail,(length,()))) [1..3] == (1,([2,3],(3,())))
+test_fanout_prod = fanout (head,(tail,(Prelude.length,()))) [1..3] == (1,([2,3],(3,())))
 
 
 -- test of inferrence convenience:
@@ -367,6 +367,11 @@ test_factorPrefix2 = ( ('a',(True,())) , (Left ('b',())) :: Either (Char,()) () 
     (factorPrefix (Left ('a',(True,('b',())))  ))
 
 test_toList2 = ( toList $ toFList () ) == []
+
+-- currently we need: _4th `asLength` as
+fanin (1,(2,(3,(4,())))) _4th
+
+
 -}
 
 
