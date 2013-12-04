@@ -1,80 +1,95 @@
 {-# LANGUAGE TypeOperators, TypeFamilies , MultiParamTypeClasses , FunctionalDependencies , FlexibleInstances , UndecidableInstances #-}
-module Data.Shapely.Normal.FannedApplication
+module Data.Shapely.Normal.Exponentiation
     where
 
--- Internal module to break cycle, since we need 'Fans' in Data.Shapely.Classes
+-- Internal module to break cycle, since we need 'Exponent' in Data.Shapely.Classes
 -- We export these in Data.Shapely.Normal
 
 import Data.Shapely.Normal.Classes
 import Control.Arrow((&&&))
 
--- | A class for arrows between a 'Product' or 'Coproduct' @abc@ and any type @r@. 
-class Fans abc r where
-    -- | A structure capable of consuming the terms @abc@ and producing @r@.
-    type abc :=>-> r
+-- | The algebraic normal form 'Exponent' @abc@ distributed over the base @r@.
+type family abc :=>-> r
+-- | The exponent @r@ distributed over the algebraic normal form 'Base' @abc@.
+type family r :->=> abc
+    
+-- TODO document with nice math symbols
+type instance () :=>-> r = r
+type instance (a,bs) :=>-> r = a -> bs :=>-> r
+type instance Either a bs :=>-> r = (a :=>-> r, AsTail bs :=>-> r)
+type instance Only a :=>-> r = (a :=>-> r, ())
+
+type instance r :->=> () = ()
+type instance r :->=> (a,bs) = (r -> a, r :->=> bs) 
+-- type instance r :->=> Either a bs = 
+-- type instance r :->=> Only a = 
+--     This is possible but crazy; its the expansion of the multinomial (see
+--     http://en.wikipedia.org/wiki/Multinomial_theorem). TODO: this, then
+--     combine Exponent and Base classes.
+
+
+
+-- | A class for the exponent laws with the 'Normal' form @abc@ in the exponent
+-- place. See the instance documentation for concrete types and examples.
+class Exponent abc where
     fanin :: (abc :=>-> r) -> (abc -> r)
     unfanin :: (abc -> r) -> (abc :=>-> r)
 
-    -- | A structure capable of producing the terms @abc@ from @r@
-    type r :->=> abc
+-- | A class for the exponent laws with the 'Normal' form @abc@ in the base
+-- place. See the instance documentation for concrete types and examples.
+class Base abc where
     fanout :: (r :->=> abc) -> (r -> abc)
+    unfanout :: (r -> abc) -> (r :->=> abc)
 
-instance Fans () r where
-    type () :=>-> r = r
+instance Exponent () where
     fanin = const
     unfanin f = f ()
 
-    type r :->=> () = ()
+instance Base () where
     fanout = const
+    unfanout f = ()
 
 -- | [@fanin@] an n-ary @uncurry@ 
 --   
 --   [@unfanin@] an n-ary @curry@
 --
---   [@fanout@] an n-ary @(&&&)@
---
 -- Examples:
 --
--- > fanin (+) (1,(2,())) == 3
-instance (Fans bs r)=> Fans (a,bs) r where
-    type (a,bs) :=>-> r = a -> bs :=>-> r
+-- >>> fanin (+) (1,(2,()))
+-- 3
+instance (Exponent bs)=> Exponent (a,bs) where
     fanin f = uncurry (fanin . f)
     unfanin f = unfanin . curry f
     
-    type r :->=> (a,bs) = (r -> a, r :->=> bs) 
-    fanout (f,fs) = f &&& fanout fs
-
--- | [@fanin@] an n-ary @(|||)@
---   
---   [@unfanin@] an n-ary ???
+-- | [@fanout@] an n-ary @(&&&)@
 --
---   [@fanout@] an n-ary ???
+instance (Base bs)=> Base (a,bs) where
+    fanout (f,fs) = f &&& fanout fs
+    unfanout f = (fst . f, unfanout (snd . f))
+ -- unfanout = (fst .) &&& (unfanout . (snd .))
+
+-- | [@fanin@] an n-ary @(|||)@, and (!!)
+--   
+--   [@unfanin@] an n-ary TODO
 --
 -- Examples:
 --
--- > let s = Right $ Right (1,([2..5],())) :: Either (Int,()) ( Either () (Int,([Int],())) )
--- >  in fanin ((+1), (3, (foldr (+), ()))) s  ==  15
+-- >>> let s = Right $ Right (1,([2..5],())) :: Either (Int,()) ( Either () (Int,([Int],())) )
+-- >>> fanin ((+1), (3, (foldr (+), ()))) s 
+-- 15
 --
--- > fanout (Left ((+1),()) :: Either (Int -> Int,()) (Int -> Bool,())) 1  ==  Left (2,())
-instance (EitherTail bs, Fans bs r, Fans (AsTail bs) r, Fans a r)=> Fans (Either a bs) r where
-    type Either a bs :=>-> r = (a :=>-> r, AsTail bs :=>-> r)
+-- And for fetching an element at an index...
+--
+-- >>> let ns = (1,(2,(3,(4,()))))
+-- >>> fanin ns (_4th `'ofLength'` ns)
+-- 4
+instance (EitherTail bs, Exponent bs, Exponent (AsTail bs), Exponent a)=> Exponent (Either a bs) where
     fanin (f,fs) = eitherTail (fanin f) (fanin fs)
     unfanin f = (unfanin (f . Left), unfanin (f . Right . fromTail))
-    
-    -- NOTE: no eitherTail necessary (or possible) here:
-    type r :->=> Either a bs = Either (r :->=> a) (r :->=> bs)
-    fanout = either ((Left .) . fanout) ((Right .) . fanout) 
 
-instance (Fans a r)=> Fans (Only a) r where
-    type Only a :=>-> r = (a :=>-> r, ())
+instance (Exponent a)=> Exponent (Only a) where
     fanin (f,()) = fanin f . just
     unfanin f = (unfanin (f . Only), ())
-    
-    -- TODO consider hiding Only constructor, and then maybe we don't have to define this, or maybe we can make instances that are nonsensical, but work recursively
-    -- NOTE: we don't even use this recursively:
-    type r :->=> Only a = r :->=> a
-    fanout f = Only . fanout f
-
 
 
 

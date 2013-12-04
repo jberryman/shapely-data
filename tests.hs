@@ -19,6 +19,10 @@ import Data.Shapely.Spine
 import Data.Proxy
 import Control.Monad(forM)
 
+import Data.Foldable(toList)
+
+-- TODO: why did we start saying "*_pred" ? Rename "test_*" and some TH to gather all of them in `main`
+
 --  TODO QUESTIONS:
     -- How does massageable work with polymorphic terms?
     --   - can we do massage (x :: Foo a b) :: Bar b a   ??
@@ -37,13 +41,55 @@ p = 1 <| 'a' <! True
 
 test_constructorsOfNormal_prod = constructorsOfNormal ('a',('b',())) 'x' 'y'  ==  ('x',('y',()))
 
+{-
 -- CONCATABLE
 concated_p :: (Int,(Char,(Bool,(Int,(Char,(Bool,()))))))
 concated_p = Sh.concat (p, (p, ()))
 
 test_concated_s = ( Sh.concat $ (Right s  :: Either (Either (Int,()) (Either (Char,()) (Bool,())))  (Either (Int,()) (Either (Char,()) (Bool,(String,())))) ) )
                     == Right (Right (Right (Right (Right (True,("true",()))))))
+-}
 
+test_distributeTerm = 
+    let s' = Right (Right (1,(True,("true",(9,())))))
+     in s' == 1 *< s >* 9
+
+multiply1
+  :: Either
+       (Int, (Int, ()))
+       (Either
+          (Int, (Char, ()))
+          (Either
+             (Int, (Bool, (String, ())))
+             (Either
+                (Char, (Int, ()))
+                (Either
+                   (Char, (Char, ()))
+                   (Either
+                      (Char, (Bool, (String, ())))
+                      (Either
+                         (Bool, ([Char], (Int, ())))
+                         (Either
+                            (Bool, ([Char], (Char, ())))
+                            (Bool, ([Char], (Bool, (String, ())))))))))))
+multiply1 = s >*< s
+
+test_multiply2 = p >*< () >*< p == 1 <| 'a' <| True <| 1 <| 'a' <! True
+
+test_multiply_monoid = and $ 
+    [ () >*< p == p
+    , p >*< () == p
+    , () >*< s == s
+    , s >*< () == s
+    , (p >*< p) >*< p == p >*< (p >*< p)
+    , (s >*< p) >*< p == s >*< (p >*< p)
+    , (p >*< s) >*< p == p >*< (s >*< p)
+    , (p >*< p) >*< s == p >*< (p >*< s)
+    , (s >*< s) >*< p == s >*< (s >*< p)
+    , (p >*< s) >*< s == p >*< (s >*< s)
+    , (s >*< s) >*< s == s >*< (s >*< s)
+    ]
+    
 
 -- REVERSABLE
 s_rev :: Either (Bool,(String,())) (Either (Char,()) (Int,()))
@@ -87,6 +133,7 @@ test_unfanin_coprod =
 
 
 -- APPEND
+{-
 appended :: (Int,(Char,(Bool,(Int,(Char,(Bool,()))))))
 appended = p .++. p
 
@@ -98,25 +145,31 @@ appended_s
 appended_s = let s_ss = (Right s) :: Either ( Either (Char,()) (Int,()) )  ( Either (Int,()) (Either (Char,()) (Bool,(String,()))) )
               in append s_ss
                   --  == Right (Right (Right (Right (True,()))))
+-}
 
 -- Homogeneous
-test_toList = Sh.toList (1,(2,(3,()))) == [1,2,3]
+test_toList = ( toList $ toFList (1,(2,(3,()))) ) == [1,2,3]
+test_toList2 =  null $ toList $ toFList ()  
+test_homogenous_inferrence = (\(a,as) -> a == 1) $ fromFList $ toFList (1,(2,(3,())))
 
 -- CARTESIAN-ESQUE
-test_fanout_prod = fanout (head,(tail,(length,()))) [1..3] == (1,([2,3],(3,())))
+test_fanout_prod = fanout (head,(tail,(Prelude.length,()))) [1..3] == (1,([2,3],(3,())))
 
-test_fanout_coprod = fanout (Right $ Left ((+1),(const 'a',())) ) 1  ==  (Right (Left (2,('a',()))) :: Either (Bool,()) (Either (Int,(Char,()))  ()))
 
 -- test of inferrence convenience:
-test_replicate = (3  ==) $ (\(x,(y,(z,())))-> x+y+z) $ Sh.replicate 1
+test_repeat = (3  ==) $ (\(x,(y,(z,())))-> x+y+z) $ Sh.repeat 1
 -- THIS DOESN'T WORK, HOWEVER. any way to restructure fanin to make inferrence possible?
--- replicate_test2 = (3 ==) $ Sh.uncurry (\x y z-> x+y+z) $ Sh.replicate 1
-test_replicate2 = (3 ==) $ Sh.fanin (\x y z-> x+y+z) (Sh.replicate 1 :: (Int,(Int,(Int,()))))
+-- repeat_test2 = (3 ==) $ Sh.uncurry (\x y z-> x+y+z) $ Sh.repeat 1
+test_repeat2 = (3 ==) $ Sh.fanin (\x y z-> x+y+z) (Sh.repeat 1 :: (Int,(Int,(Int,()))))
+
+test_replicate = (\(_,(a,_)) -> a == 2) $ Sh.replicate (Proxy :: Proxy (Either () (Either () ()))) 2
 
 test_extract = let s' :: Either (Int,()) (Either (Int,()) (Int,()))
                    s' = Right (Right (1,()))
                 in extract s'  ==  (1,())
 
+test_factorPrefix = ('a',(True,())) == 
+    (fst $ factorPrefix (Left ('a',(True,('b',()))) :: Either (Char,(Bool,(Char,()))) (Char,(Bool,())) ))
 
 -------- MASSAGEABLE
 
@@ -306,6 +359,19 @@ th_rec_reg_poly_param_swapping_coerce_pred :: (RegRecParams1 a b, RegRecParams2 
 th_rec_reg_poly_param_swapping_coerce_pred = 
     let (x,y) = (RRPNil1, coerce x) 
      in (x,y)
+
+-- if we can make FactorPrefix look like:
+-- class (Product ab)=> FactorPrefix ab abcs cs | ab abcs -> cs, ab cs -> abcs, abcs cs -> ab where
+-- we'd get better inferrence, supporting:
+test_factorPrefix2 = ( ('a',(True,())) , (Left ('b',())) :: Either (Char,()) () ) == 
+    (factorPrefix (Left ('a',(True,('b',())))  ))
+
+test_toList2 = ( toList $ toFList () ) == []
+
+-- currently we need: _4th `asLength` as
+fanin (1,(2,(3,(4,())))) _4th
+
+
 -}
 
 

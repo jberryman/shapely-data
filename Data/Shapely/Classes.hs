@@ -11,14 +11,14 @@ module Data.Shapely.Classes
 
 -- internal module to avoid circular dependencies
 
-import Data.Shapely.Normal.FannedApplication
+import Data.Shapely.Normal.Exponentiation
 import Data.Shapely.Normal.Classes
 
 
 
 -- | Instances of the 'Shapely' class can be converted to and from a 'Normal'
 -- representation, made up of @(,)@, @()@ and @Either@.
-class (Fans (Normal a) a)=> Shapely a where
+class (Exponent (Normal a))=> Shapely a where
     -- | A @Shapely@ instances \"normal form\" representation, consisting of
     -- nested product, sum and unit types. Types with a single constructor will
     -- be given a 'Product' Normal representation, where types with more than
@@ -33,7 +33,7 @@ class (Fans (Normal a) a)=> Shapely a where
     from :: Normal a -> a
     from na = let a = fanin (constructorsOf a) na in a
     
-    -- | Return a structure capable of recreating a type @a@ from its 'Normal'
+    -- | Return a structure capable of rebuilding a type @a@ from its 'Normal'
     -- representation (via 'fanin').
     --
     -- This structure is simply the data constructor (or a 'Product' of
