@@ -91,6 +91,13 @@ import Data.Proxy
 --      - make sure we know exactly how OverlappingInstances and
 --        UndecidableInstances are working and that they're safe here
 --          - double check all uses (remove / recompile / assess)
+--      - see about instances for coerce/massage that match recursive type application
+--      - consider adding specific Int and Double instances (and perhaps
+--         others; see extended defaulting rules), to get something from default
+--         type defaulting? 
+--          - when either source or target are e.g. known Int, this does what we want
+--          - when both are e.g. polymorphic Num this may or may not be confusing...
+--          - Actually this doesn't work with multiparameter type classes.
 --      - documentation:
 --          - notes about Algebraic stuff
 --          - fix 'limitations' section
