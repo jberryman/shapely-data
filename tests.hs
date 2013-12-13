@@ -341,6 +341,9 @@ $(fmap Prelude.concat $ forM [''RegRecParams1, ''RegRecParams2] deriveShapely)
 th_rec_reg_param_swapping_coerce_pred = 
     (coerce $ RRPCons1 'a' True RRPNil1) == RRPCons2 'a' True RRPNil2
 
+coerce_recursive_self :: [Char]
+coerce_recursive_self = coerce "where the instance shows source/target term equality, and equality in outer constructors"
+
 
 -- POLYMORPHISM/INFERRENCE-PRESERVING STUFF WE MIGHT LIKE TO SUPPORT SOMEHOW
 -- ------------------------------
@@ -375,7 +378,7 @@ fanin (1,(2,(3,(4,())))) _4th
 -}
 
 
-
+-- ---------------------------------------------------------------------------
 {-
 -- TO THINK ABOUT, when doing inlining, deeper structure on next version:
 -- these are old notes

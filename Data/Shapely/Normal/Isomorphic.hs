@@ -44,7 +44,7 @@ instance (Unapplied (Proxy txy) t, IsomorphicWith (Proxy t,()) txy b)=> Isomorph
 -- TODO not really Isomorphic since we can't reverse a and b and keep ts
 class (SpineOf ts, Shapely a, Shapely b)=> IsomorphicWith ts a b where
     -- | Convert a type @a@ to an isomorphic type @b@, where the 'Proxy' types
-    -- in @ts@ define the recursive structure of @a@.
+    -- in @ts@ define the recursive structure of @a@. See 'SpineOf'.
     coerceWith :: ts -> a -> b
 
 instance (Shapely a, Shapely b, IsoNormal ts (Normal a) (Normal b))=> IsomorphicWith ts a b where
@@ -68,30 +68,26 @@ instance (IsoNormal a as as', IsoNormal a bs bs')=> IsoNormal a (Either as bs) (
 class (SpineOf tsOrig, SpineOf tsBeingChecked)=> IsoTerms tsBeingChecked tsOrig a b where
     coerceTermWith :: tsBeingChecked -> tsOrig -> a -> b
 
+-- we got to the end of the list of spine types, so insist on the terms being equal:
 instance (SpineOf tsOrig)=> IsoTerms () tsOrig a a where
     coerceTermWith _ _ = id
 
--- THESE TWO:
-{-
-instance (SpineOf ts, IsomorphicWith tsOrig a b)=> IsoTerms (Proxy a, ts) tsOrig a b where -- note: `b` may ~ `a`
-    coerceTermWith _ = coerceWith
-
-instance (SpineOf ts, Shapely x, IsoTerms ts tsOrig a b)=> IsoTerms (Proxy x, ts) tsOrig a b where
-    coerceTermWith = coerceTermWith . snd
-    -}
 instance (SpineOf (Proxy x, ts), SpineOf tsOrig
-         , IsOfBaseType x a bool, IsoTermFoo bool ts tsOrig a b
+         , IsOfBaseType x a bool, TryingIsoTerm bool ts tsOrig a b
          )=> IsoTerms (Proxy x, ts) tsOrig a b where
-    coerceTermWith = coerceTermWithFoo (Proxy :: Proxy bool) . snd
+    coerceTermWith = coerceTermWithOrContinue (Proxy :: Proxy bool) . snd
 
---TODO name
-class IsoTermFoo (bool :: Bool) ts tsOrig a b where
-    coerceTermWithFoo :: Proxy bool -> ts -> tsOrig -> a -> b
+
+-- IsoTerms helper that based on the passed type-level Bool either tries to
+-- recursively coerce term a, or continues processing the type spine list by
+-- calling IsoTerms again.
+class TryingIsoTerm (aIsOfBaseType :: Bool) ts tsOrig a b where
+    coerceTermWithOrContinue :: Proxy aIsOfBaseType -> ts -> tsOrig -> a -> b
 
 -- a was in spine
-instance (IsomorphicWith tsOrig a b)=> IsoTermFoo True ts tsOrig a b where
-    coerceTermWithFoo _ _ = coerceWith
+instance (IsomorphicWith tsOrig a b)=> TryingIsoTerm True ts tsOrig a b where
+    coerceTermWithOrContinue _ _ = coerceWith
 -- a is not part of spine, try tail of spine list:
-instance (IsoTerms ts tsOrig a b, SpineOf ts, SpineOf tsOrig)=> IsoTermFoo False ts tsOrig a b where
-    coerceTermWithFoo _ = coerceTermWith
+instance (IsoTerms ts tsOrig a b, SpineOf ts, SpineOf tsOrig)=> TryingIsoTerm False ts tsOrig a b where
+    coerceTermWithOrContinue _ = coerceTermWith
 
