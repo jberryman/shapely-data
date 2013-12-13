@@ -1,11 +1,14 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveFunctor #-}
 
 module Main
     where
 
--- We mostly care that this compiles.
+-- Where a declaration starts with "test_" and has no type sig, it is a Bool
+-- that needs to be checked; otherwise we just care that things in here
+-- typecheck.
 --
 -- Contributers: Any changes that simplify or improve the structure of the
 -- Compose module are very welcome, as long as they don't break this test
@@ -20,6 +23,8 @@ import Data.Proxy
 import Control.Monad(forM)
 
 import Data.Foldable(toList)
+
+import Data.Tree
 
 -- TODO: why did we start saying "*_pred" ? Rename "test_*" and some TH to gather all of them in `main`
 
@@ -343,6 +348,34 @@ th_rec_reg_param_swapping_coerce_pred =
 
 coerce_recursive_self :: [Char]
 coerce_recursive_self = coerce "where the instance shows source/target term equality, and equality in outer constructors"
+
+
+-- excercise coerce with recursive Functor type application
+data OurTree a = OurNode a (OurForest a) deriving (Eq, Functor, Show)
+data OurForest a = OurEmptyForest | OurForestCons (OurTree a) (OurForest a)
+    deriving (Eq, Functor, Show) -- really a list
+$(fmap Prelude.concat $ forM [''Tree, ''OurTree, ''OurForest] deriveShapely)
+
+ourTree = OurNode 'a' (OurForestCons (OurNode 'b' OurEmptyForest) (OurForestCons (OurNode 'c' OurEmptyForest) OurEmptyForest)) 
+theirTree = Node 'a' ( [ Node 'b' [] , Node 'c' [] ]) 
+
+test_coerceWith_type_application = coerceWith (spine :: OurTree :-! OurForest) ourTree  == theirTree  &&
+                                   coerceWith (spine :: [] :-! Tree) theirTree == ourTree
+{- TODO WE WOULD LIKE TO SUPPORT THIS:
+ - where we need Shapely of OurForest to inline the newtype wrapper
+data OurTree a = OurNode a (OurForest a) deriving (Functor, Show)
+newtype OurForest a = OurForest [OurTree a] deriving ( Functor, Show)
+$(fmap Prelude.concat $ forM [''Tree, ''OurTree, ''OurForest] deriveShapely)
+
+ourTree = OurNode 'a' (OurForest [OurNode 'b' (OurForest []) , OurNode 'c' (OurForest []) ])
+theirTree = Node 'a' ( [ Node 'b' [] , Node 'c' [] ]) 
+-}
+
+data WithFunctorTerm1 = WFT1 (Maybe WithFunctorTerm1) (Maybe [Int]) deriving Eq
+data WithFunctorTerm2 = WFT2 (Maybe WithFunctorTerm2) (Maybe [Int]) deriving Eq
+$(fmap Prelude.concat $ forM [''WithFunctorTerm1, ''WithFunctorTerm2] deriveShapely)
+test_functor_term_sanity = coerce (WFT1 Nothing $ Just [1..3]) == (WFT2 Nothing $ Just [1..3]) ---- TODO OVERLAPPING!!!!!!
+
 
 
 -- POLYMORPHISM/INFERRENCE-PRESERVING STUFF WE MIGHT LIKE TO SUPPORT SOMEHOW
