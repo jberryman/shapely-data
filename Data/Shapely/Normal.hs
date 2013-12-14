@@ -87,17 +87,9 @@ import Data.Proxy
 --      - add in unicode math stuff in docs.
 --      - see about any '*As' variants that might be useful, for type inferrence
 --          - see tests.hs
---      - implement FunctorOn
 --      - make sure we know exactly how OverlappingInstances and
 --        UndecidableInstances are working and that they're safe here
 --          - double check all uses (remove / recompile / assess)
---      - see about instances for coerce/massage that match recursive type application
---      - consider adding specific Int and Double instances (and perhaps
---         others; see extended defaulting rules), to get something from default
---         type defaulting? 
---          - when either source or target are e.g. known Int, this does what we want
---          - when both are e.g. polymorphic Num this may or may not be confusing...
---          - Actually this doesn't work with multiparameter type classes.
 --      - documentation:
 --          - notes about Algebraic stuff
 --          - fix 'limitations' section
@@ -112,6 +104,7 @@ import Data.Proxy
 --      - move to closed type families, look at replacing OverlappingInstances
 --        with these by using families for type equality
 --          - use closed type fams in proxy-kindness too
+--      - work on PatternFunctor stuff (see branch) now that we have closed TFs
 --      - use some scheme to close type classes (maybe closed type fams will help)
 --      - freeze 'massage' behavior
 --      - support inlining, and "templates" defining structure. Have NormalR use this

@@ -42,7 +42,7 @@ type t1 :-! t2 = (Proxy t1, (Proxy t2, ()))
 --
 -- ...or the base type applied as far as desired and functions using this spine
 -- will match potential product terms accordingly (e.g. 'coerceWith').
--- 
+--
 -- See "proxy-kindness" for utilities useful fo constructing 'Spine's, e.g.
 -- 'unappliedOf'.
 class SpineOf ts where

@@ -88,8 +88,8 @@ instance (MassageableNormalRec FLAT FLAT x y)=> MassageableNormal x y where
 
 -- | /DISCLAIMER: this function is experimental (although it should be correct) and the behavior may change in the next version, based on user feedback. Please see list of limitations below and send feedback if you have any./
 --
--- A class for typed, principled, \"fuzzy coercions\" between types.
--- See also 'MassageableNormal'.
+-- A class for typed, principled, \"fuzzy coercions\" between types.  See also
+-- 'MassageableNormal'.
 --
 -- This works as follows (or see examples below):
 --
@@ -120,6 +120,7 @@ instance (MassageableNormalRec FLAT FLAT x y)=> MassageableNormal x y where
 --
 -- One limitation is we don't support a way to handle recursive structures
 -- beyond top-level direct recursion (e.g. mutually-recusrive pairs of types).
+-- And unlike 'coerce' functor type-applied recursive terms are not supported.
 --
 -- Any feedback on the above behavior would be greatly appreciated.
 class Massageable a b where
@@ -250,4 +251,5 @@ instance (ProductToProductPred False x x ys ys' b
 
 ------------ NON-INSTANCES: ------------
 
+-- DEFAULT CASE:
 instance (False ~ false)=> ProductToProductPred either pa pb s t false
