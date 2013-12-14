@@ -22,7 +22,7 @@ class (Exponent (Normal a))=> Shapely a where
     -- | A @Shapely@ instances \"normal form\" representation, consisting of
     -- nested product, sum and unit types. Types with a single constructor will
     -- be given a 'Product' Normal representation, where types with more than
-    -- one constructor will be 'Coproduct's. 
+    -- one constructor will be 'Sum's. 
     --
     -- See the documentation for 'deriveShapely', and the instances defined here
     -- for details.
@@ -37,7 +37,7 @@ class (Exponent (Normal a))=> Shapely a where
     -- representation (via 'fanin').
     --
     -- This structure is simply the data constructor (or a 'Product' of
-    -- constructors for 'Coproduct's), e.g. for @Either@:
+    -- constructors for 'Sum's), e.g. for @Either@:
     --
     -- > constructorsOf _ = (Left,(Right,()))
     --

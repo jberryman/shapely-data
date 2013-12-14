@@ -10,7 +10,7 @@ module Data.Shapely.Normal.Classes
 --   What if we make a class that bundles all the relations we can say between
 --   these type funcs, e.g.
 --       Head t :< Tail t ~ t
---   And we could make Coproduct/Product sub-classes. Would that make fmapTail
+--   And we could make Sum/Product sub-classes. Would that make fmapTail
 --   more viable?
 
 
@@ -23,17 +23,17 @@ class (NormalConstr t ~ (,))=> Product t
 instance Product ()
 instance (Product ts)=> Product (a,ts)
 
--- | A coproduct is a non-empty list of 'Product's constructed with @Either@
+-- | A @Sum@ is a non-empty list of 'Product's constructed with @Either@
 -- and terminated by a 'Product' type on the @Right@. e.g.
 --
--- > coprod = (Right $ Left (1,(2,(3,())))) :: Either (Bool,()) (Either (Int,(Int,(Int,()))) (Char,()))
+-- > s = (Right $ Left (1,(2,(3,())))) :: Either (Bool,()) (Either (Int,(Int,(Int,()))) (Char,()))
 --
 -- To simplify type functions and class instances we also define the singleton
--- coproduct 'Only'.
-class (NormalConstr e ~ Either)=> Coproduct e 
-instance (Product t)=> Coproduct (Either t ())
-instance (Product t, Product (a,b))=> Coproduct (Either t (a,b))
-instance (Product t, Coproduct (Either b c))=> Coproduct (Either t (Either b c))
+-- sum 'Only'.
+class (NormalConstr e ~ Either)=> Sum e 
+instance (Product t)=> Sum (Either t ())
+instance (Product t, Product (a,b))=> Sum (Either t (a,b))
+instance (Product t, Sum (Either b c))=> Sum (Either t (Either b c))
 
 type family NormalConstr t :: * -> * -> *
 type instance NormalConstr (a,b) = (,)
@@ -91,10 +91,10 @@ type instance Only a :> b = Either a b
 
 
 
--- | A singleton inhabited 'Coproduct'. This is an intermediate type useful for
+-- | A singleton inhabited 'Sum'. This is an intermediate type useful for
 -- constructing Conproducts, and in our instances (see e.g. 'Tail')
 newtype Only a = Only { just :: a }
 
 type instance NormalConstr (Only a) = Either
-instance (Product t)=> Coproduct (Only t)
+instance (Product t)=> Sum (Only t)
 

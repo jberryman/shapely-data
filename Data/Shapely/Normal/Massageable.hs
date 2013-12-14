@@ -30,7 +30,7 @@ import Data.Proxy
 
 -- We need to be able to choose instances based on *whether* a type is a member
 -- of a class, e.g. if the source is massageable to the left of the target
--- coproduct we do that, otherwise recursing to the Right. In order to do that
+-- sum we do that, otherwise recursing to the Right. In order to do that
 -- we have to turn the classes we would normally write into *predicates*, i.e.
 -- where no instance would exist above, we now need to define an instance that
 -- unifies a boolean head type variable to 'False'; we then chain these using
@@ -109,7 +109,7 @@ instance (MassageableNormalRec FLAT FLAT x y)=> MassageableNormal x y where
 --     recursively applying 'massage' (this is the only exception to the above,
 --     and the only place where we inspect 'Product' subterms).
 --
---   - When the source @a@ is a 'Coproduct' this conversion may be surjective
+--   - When the source @a@ is a 'Sum' this conversion may be surjective
 --     w/r/t the product mappings, i.e. multiple source \"constructors\" may map
 --     to the same target constructor.  But again the individual mappings must be
 --     unambiguous.
@@ -146,12 +146,12 @@ instance (MassageableNormalRec a b s t, MassageableNormalRec a b ss t)=> Massage
 
 instance ( IsAllUnique (x,xs) isTIPStyle
          , ProductToProductPred isTIPStyle a b (x,xs) xss isHeadMassageable
-         , ProductToCoproduct isHeadMassageable a b (x, xs) (Either xss yss)
+         , ProductToSum isHeadMassageable a b (x, xs) (Either xss yss)
     )=> MassageableNormalRec a b (x,xs) (Either xss yss) where
     massageNormalRec = massageProdCoprod (Proxy::Proxy isHeadMassageable)
 instance ( IsAllUnique () isTIPStyle
          , ProductToProductPred isTIPStyle a b () xss isHeadMassageable
-         , ProductToCoproduct isHeadMassageable a b () (Either xss yss)
+         , ProductToSum isHeadMassageable a b () (Either xss yss)
     )=> MassageableNormalRec a b () (Either xss yss) where
     massageNormalRec = massageProdCoprod (Proxy::Proxy isHeadMassageable)
 
@@ -170,17 +170,17 @@ alsoMassage ab a = massageNormalRec ab $$ a
 ------------------------------------------------------------------------------
 -- MASSAGING PRODUCTS TO COPRODUCTS
 
-class ProductToCoproduct (isHeadMassageable::Bool) pa pb s t where
+class ProductToSum (isHeadMassageable::Bool) pa pb s t where
     massageProdCoprod :: Proxy isHeadMassageable -> (Proxy pa, Proxy pb) -> s -> t
 
 instance ( IsAllUnique xss isTIPStyle
          , ProductToProductPred isTIPStyle pa pb xss xs True
          -- insist unambiguous, else fail typechecking:
          , AnyMassageable pa pb xss ys False
-         )=> ProductToCoproduct True pa pb xss (Either xs ys) where
+         )=> ProductToSum True pa pb xss (Either xs ys) where
     massageProdCoprod _ ab = Left . massageProdProd (Proxy :: Proxy isTIPStyle,ab)
 
-instance (MassageableNormalRec pa pb yss ys)=> ProductToCoproduct False pa pb yss (Either xs ys) where
+instance (MassageableNormalRec pa pb yss ys)=> ProductToSum False pa pb yss (Either xs ys) where
     massageProdCoprod _ ab = Right . massageNormalRec ab
 
 -- helper predicate class:

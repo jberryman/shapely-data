@@ -97,12 +97,12 @@ instance (Exponent a)=> Exponent (Only a) where
 -- ---------------------------------------------------------------------------
 -- TODO move these to a Helper module (needed here and Data.Shapely.Normal
 -- 
--- Our classes would be much prettier if Coproducts looked like (Either a
+-- Our classes would be much prettier if Sums looked like (Either a
 -- (Either b (Only c))), but this is not possible. All my attempts at defining
 -- utility functions to simplify instances have been fairly useless, including
 -- this one.
 
--- Helpers for recursion on coproducts:
+-- Helpers for recursion on sums:
 class (Tail (Either () b) ~ AsTail b)=> EitherTail b where
     eitherTail :: (a -> c) -> (AsTail b -> c) -> Either a b -> c
     type AsTail b  -- keeps constraints a little less noisy
@@ -124,14 +124,14 @@ instance EitherTail (Either x y) where
     fromTail = id
 
 
-{- NOTE initially tried this to avoid needing to define identical Coproduct
+{- NOTE initially tried this to avoid needing to define identical Sum
  - base cases for (a,b) and (), but it made instance constraint very noisey.
  - Not worth it.
--- map onto Tail of a Coproduct, yielding a Coproduct, and reconstructing. 
-class (Coproduct b')=> FmapTail b' where
+-- map onto Tail of a Sum, yielding a Sum, and reconstructing. 
+class (Sum b')=> FmapTail b' where
     fmapTail :: (EitherTail b)=> (Tail (Either a b) -> b') -> Either a b -> (a :< b')
 
-instance (Coproduct (Either x y))=> FmapTail (Either x y) where
+instance (Sum (Either x y))=> FmapTail (Either x y) where
     fmapTail f = eitherTail Left (Right . f)
 
 instance (Product x)=> FmapTail (Only x) where

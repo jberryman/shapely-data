@@ -20,8 +20,8 @@ import Data.Shapely.Classes
 
 -- TODO 
 --    - type indexed 'factor' (and even 'distribute')
---    - inject :: prod -> coprod
---    - `nub` for coprod (perhaps calling `inject`)
+--    - inject :: prod -> sum
+--    - `nub` for sum (perhaps calling `inject`)
 --    - Unique (or TypeSet, or...?) class (i.e. for products this is a TIP), or
 --    predicate class (clean up TypeIndexPred in Massageable, keeping method
 --    hidden) 
@@ -35,7 +35,7 @@ instance HasAny a (a,l) True
 instance (HasAny a l b)=> HasAny a (x,l) b
 instance HasAny a () False
 
--- for 'Coproduct's:
+-- for 'Sum's:
 instance HasAny p (Either p ps) True
 instance (HasAny a (Tail (Either x l)) b)=> HasAny a (Either x l) b
 instance HasAny p (Only p) True
@@ -80,7 +80,7 @@ viewTypeOf = const . viewType
 
 
 
--- | The non-empty, 'Product' or 'Coproduct' @l@, out of which we can pull the
+-- | The non-empty, 'Product' or 'Sum' @l@, out of which we can pull the
 -- first occurrence of type @a@, leaving as the 'Tail' @l'@.
 class HavingType a l l' | a l -> l' where
     -- | Shift the first occurrence of type @a@ to the 'Head' of @l@.
@@ -99,14 +99,14 @@ instance (Product l, HavingType a l l', (x,l') ~ xl')=> HavingType a (x,l) xl' w
 
 
 -- match Left
-instance (Coproduct (Either () ps))=> HavingType () (Either () ps) ps where
+instance (Sum (Either () ps))=> HavingType () (Either () ps) ps where
     viewFirstType = id
-instance (Coproduct (Either (x,y) ps))=> HavingType (x,y) (Either (x,y) ps) ps where
+instance (Sum (Either (x,y) ps))=> HavingType (x,y) (Either (x,y) ps) ps where
     viewFirstType = id
 -- (ugly. needed to steal instance from the next section below):
-instance (Coproduct (Either () ()))=> HavingType () (Either () ()) () where
+instance (Sum (Either () ()))=> HavingType () (Either () ()) () where
     viewFirstType = id
-instance (Coproduct (Either (x,y) (x,y)))=> HavingType (x,y) (Either (x,y) (x,y)) (x,y) where
+instance (Sum (Either (x,y) (x,y)))=> HavingType (x,y) (Either (x,y) (x,y)) (x,y) where
     viewFirstType = id
 
 -- match Right Product
@@ -114,5 +114,5 @@ instance (x' ~ x, Product p)=> HavingType p (Either x p) x' where
     viewFirstType = swap
 
 -- recurse Right:
-instance (HavingType a y l', Either x l' ~ xl', Coproduct y)=> HavingType a (Either x y) xl' where
+instance (HavingType a y l', Either x l' ~ xl', Sum y)=> HavingType a (Either x y) xl' where
     viewFirstType = swapFront . fmap viewFirstType

@@ -35,11 +35,11 @@ import Control.Monad
 --
 --   - Product terms are composed with nested tuples, e.g. @Foo a b c ==> (a,(b,(c,())))@
 --
---   - The @|@ in multiconstructor ('Coproduct') type declarations is replaced
+--   - The @|@ in multiconstructor ('Sum') type declarations is replaced
 --      with @Either@, with a nesting like the above
 --
 -- Note that a 'Product' type in the @Right@ place terminates a composed
--- 'Coproduct', while a @()@ in the @snd@ place terminates the composed terms
+-- 'Sum', while a @()@ in the @snd@ place terminates the composed terms
 -- of a @Product@.
 deriveShapely :: Name -> Q [Dec]
 deriveShapely n = do
@@ -84,15 +84,15 @@ drvShapely t cnstrctrs =
         tNormProd' = foldr (AppT . AppT (TupleT 2)) (TupleT 0) -- i.e. foldr (,) () constructors
 
     -- ----
-    toClauses coprodWrapper [c] = [toClauseProd coprodWrapper c]
-    toClauses coprodWrapper (c:cs) = 
-      toClauseProd (coprodWrapper . AppE (ConE 'Left)) c 
-        : toClauses (coprodWrapper . AppE (ConE 'Right)) cs
-    toClauses coprodWrapper _ = error "Type has no constructors, so has no 'shape'."
+    toClauses sumWrapper [c] = [toClauseProd sumWrapper c]
+    toClauses sumWrapper (c:cs) = 
+      toClauseProd (sumWrapper . AppE (ConE 'Left)) c 
+        : toClauses (sumWrapper . AppE (ConE 'Right)) cs
+    toClauses sumWrapper _ = error "Type has no constructors, so has no 'shape'."
 
     toClauseProd :: (Exp -> Exp) -> BasicCon -> Clause
-    toClauseProd coprodWrapper (n, ts) = 
-      Clause [ConP n boundVars] (NormalB $ coprodWrapper prodBody) [] -- e.g. to { (Fook a b) = Left (a,(b,())) }
+    toClauseProd sumWrapper (n, ts) = 
+      Clause [ConP n boundVars] (NormalB $ sumWrapper prodBody) [] -- e.g. to { (Fook a b) = Left (a,(b,())) }
         where boundNames = map (mkName . ("a"++) . show) $ map fst $ zip [0..] ts 
               boundVars :: [Pat]
               boundVars = map VarP boundNames   -- e.g. to (Fook { a0 a1 }) = ...

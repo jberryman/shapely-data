@@ -30,7 +30,7 @@ module Data.Shapely (
   - Performance hasn't been tested at all yet.
 
  -}
-      Product(..), Coproduct(..)
+      Product(..), Sum(..)
     , Shapely(..)
     -- * Deriving Shapely instances automatically
     , deriveShapely

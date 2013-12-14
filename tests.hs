@@ -123,14 +123,14 @@ pl = shiftl p
 test_fanin_prod = Sh.fanin (\i c b-> if b then (i,c) else (9,'z')) p  ==  (1,'a')
 test_unfanin_prod = Sh.fanin (Sh.unfanin(\(i,(c,(b,())))-> if b then (i,c) else (9,'z'))) p  ==  (1,'a')
 
-test_fanin_coprod = 
-        -- the coproduct arg must be unambiguous, but hopefully in practice a
+test_fanin_sum = 
+        -- the sum arg must be unambiguous, but hopefully in practice a
         -- type signature won't be necessary (when e.g. the sum is a
         -- TH-generated instance):
         let s' = Right $ Right (1,([2..5],())) :: Either (Int,()) ( Either () (Int,([Int],())) )
          in fanin ((+1), (3, (foldr (+), ()))) s'  ==  15
 
-test_unfanin_coprod = 
+test_unfanin_sum = 
     let f (Left (_,())) = "a"
         f (Right (Left (_,()))) = "b"
         f (Right (Right (_,(s,())))) = s
@@ -227,7 +227,7 @@ data OrderedRec = OCons Int Int OrderedRec | ONull deriving Eq
 $(deriveShapely ''OrderedRec)
 orderedr_id_pred = massage (OCons 1 1 (OCons 2 2 ONull)) == (OCons 1 1 (OCons 2 2 ONull))
 
--- [a] with both order of products and coproducts reversed:
+-- [a] with both order of products and sums reversed:
 data Tsil a = Snoc (Tsil a) a
           | Lin
           deriving Eq
@@ -243,17 +243,17 @@ test_viewFirstTypeOf_prod =  (('a',(False,(True,("potato",())))) `viewFirstTypeO
 test_viewTypeOf_prod =  (('a',(False,(True,("potato",())))) `viewFirstTypeOf` "tuber") 
                         == ("potato",('a',(False,(True,()))))
 
-viewTypeOf_coprod1 :: Either (Int, ()) (Either (Char, ()) (Bool :*! String))
-viewTypeOf_coprod1 = s `viewTypeOf` ((1,()) :: (Int,()))
+viewTypeOf_sum1 :: Either (Int, ()) (Either (Char, ()) (Bool :*! String))
+viewTypeOf_sum1 = s `viewTypeOf` ((1,()) :: (Int,()))
 
-viewTypeOf_coprod2 :: Either (Char, ()) (Either (Int, ()) (Bool :*! String))
-viewTypeOf_coprod2 = s `viewTypeOf` ('a',())
+viewTypeOf_sum2 :: Either (Char, ()) (Either (Int, ()) (Bool :*! String))
+viewTypeOf_sum2 = s `viewTypeOf` ('a',())
 
-viewTypeOf_coprod3 :: Either (Bool :*! String) (Either (Int, ()) (Char, ()))
-viewTypeOf_coprod3 = s `viewTypeOf` (True,("string",()))
+viewTypeOf_sum3 :: Either (Bool :*! String) (Either (Int, ()) (Char, ()))
+viewTypeOf_sum3 = s `viewTypeOf` (True,("string",()))
 
-test_viewFirstTypeOf_coprod1 = (Left () :: Either () ()) `viewFirstTypeOf` ()  ==  Left ()
-test_viewFirstTypeOf_coprod2 = (Right $ Left () :: Either (Int,()) (Either () ())) `viewFirstTypeOf` ()  ==  Left ()
+test_viewFirstTypeOf_sum1 = (Left () :: Either () ()) `viewFirstTypeOf` ()  ==  Left ()
+test_viewFirstTypeOf_sum2 = (Right $ Left () :: Either (Int,()) (Either () ())) `viewFirstTypeOf` ()  ==  Left ()
 
 {- MUST NOT TYPECHECK: 
      ('a',(False,(True,("potato",())))) `viewTypeOf` True

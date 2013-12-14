@@ -23,7 +23,7 @@ compatibility issues when this module is improved.
 -}
       Only(..)
 
-    -- * Reordering 'Product' and 'Coproduct' terms
+    -- * Reordering 'Product' and 'Sum' terms
     , Reversable(..)
     , Shiftable(..)
     , viewr
@@ -38,7 +38,7 @@ compatibility issues when this module is improved.
     , single
     , (|>), (<|), (<!)
 
-    -- * Product and Coproduct Conversions
+    -- * Product and Sum Conversions
     , MassageableNormal(..)
 
     -- * Algebraic
@@ -82,8 +82,6 @@ import Data.Traversable(Traversable)
 import Data.Proxy
 
 -- TODO:
---      - consider renaming:
---          - Coproduct -> Sum
 --      - add in unicode math stuff in docs.
 --      - see about any '*As' variants that might be useful, for type inferrence
 --          - see tests.hs
@@ -99,6 +97,7 @@ import Data.Proxy
 --      - take last look at easy construction of normal-form types
 --      - create some examples that re-create GHC generics motivation
 --      - finalize exports, modules, finish cabal file w/ proper docs & motivation
+--
 --
 --   v0.2:
 --      - move to closed type families, look at replacing OverlappingInstances
@@ -185,9 +184,9 @@ viewr = swap . shiftr
 
 -- TODO: or name this class "higher-order normal" or something?
 --       we should be able to do 'append' here with a match on ((x,xs),xss) .. ((),xss)... etc.
---       maybe remove this; confusing since Either instance not a Coproduct.
+--       maybe remove this; confusing since Either instance not a Sum.
 -- | Class for flattening a 'Product' of 'Product's, or a nested sum of
--- 'Coproduct's.
+-- 'Sum's.
 class Concatable xs where
     type Concated xs
     -- | A generalization of 'Data.List.concat' for sums and products
@@ -204,7 +203,7 @@ instance (Concatable yss, Appendable xs (Concated yss)
     type Concated (xs,yss) = xs :++: Concated yss
     concat = append . fmap concat
 
--- These are the two possible leaf Coproducts at the Last position of
+-- These are the two possible leaf Sums at the Last position of
 -- our Either spine:
 instance Concatable (Either () es) where
     type Concated (Either () es) = (Either () es)
@@ -214,15 +213,15 @@ instance Concatable (Either (x,ys) es) where
     type Concated (Either (x,ys) es) = (Either (x,ys) es)
     concat = id
 
--- | Note here that @xs@ is not a 'Coproduct', since it is a sum of sums.
+-- | Note here that @xs@ is not a 'Sum', since it is a sum of sums.
 instance (Concatable ess, Appendable (Either x ys) (Concated ess)
-         , Coproduct (Either x ys), Coproduct (Concated ess)
+         , Sum (Either x ys), Sum (Concated ess)
     )=> Concatable (Either (Either x ys) ess) where
     type Concated (Either (Either x ys) ess) = Either x ys :++: Concated ess
     concat = append . fmap concat
 
 
--- | Reversing 'Products' and 'Coproduct's
+-- | Reversing 'Products' and 'Sum's
 class Reversable t where
     type Reversed t
     type Reversed t = Reversed (Tail t) :> Head t
@@ -295,7 +294,7 @@ instance (Shiftable (Either y zs)
 
 
 -- TODO remove, move functionality into Concatable
--- | A @(++)@-like append operation on 'Product's and 'Coproduct's. See also
+-- | A @(++)@-like append operation on 'Product's and 'Sum's. See also
 -- ('.++.'). e.g.
 --
 -- > append ( (1,(2,())) , (3,(4,())) )  ==  (1,(2,(3,(4,()))))
@@ -314,10 +313,10 @@ instance (Product us, Appendable ts us)=> Appendable (a,ts) us where
     type (a,ts) :++: us = (a, ts :++: us) 
     append = fmap append . associate
 
-instance (Coproduct us)=> Appendable (Either a ()) us where
+instance (Sum us)=> Appendable (Either a ()) us where
     type Either a () :++: us = Either a (Either () us)
     append = associate
-instance (Coproduct us)=> Appendable (Either a (b,c)) us where
+instance (Sum us)=> Appendable (Either a (b,c)) us where
     type Either a (b,c) :++: us = Either a (Either (b,c) us)
     append = associate
 
@@ -343,7 +342,7 @@ infixr 5 :>*<:, :*<:, >*<, *<
 
 -- | Algebraic multiplication of two 'Normal' form types @xs@ and @ys@. When
 -- both are 'Product's this operation is like the Prelude @(++)@. When both are
--- 'Coproduct's the ordering of constructors follow the \"FOIL\" pattern, e.g.
+-- 'Sum's the ordering of constructors follow the \"FOIL\" pattern, e.g.
 -- @(a + b + c)*(x + y) == (ax + ay + bx + by + cx + cy)@
 --
 -- Just like normal multiplication, this is a monoid with @()@ as our identity
@@ -494,7 +493,7 @@ class (Product as)=> Homogeneous a as | as -> a where
     --
     -- > truths = repeat True :: (Bool,(Bool,(Bool,())))
     --
-    -- An n-ary @codiag@. See also 'extract' for 'Coproduct's
+    -- An n-ary @codiag@. See also 'extract' for 'Sum's
     repeat :: a -> as
 
     -- | Convert a homogeneous product to a fixed-length list.
@@ -518,7 +517,7 @@ instance (Homogeneous a as, Replicated (Length as) a ~ as)=> Homogeneous a (a,as
     fromFList _ = error "FixedList shorter than stored length somehow! Please report this bug"
 
 
--- | Factor out and return the 'Product' from a homogeneous 'Coproduct'. An
+-- | Factor out and return the 'Product' from a homogeneous 'Sum'. An
 -- n-ary @codiag@.
 --
 -- See also 'repeat' for 'Product's.
@@ -532,7 +531,7 @@ extract = fst . factorPrefix
 --   class (Product ab)=> FactorPrefix ab abcs cs | ab abcs -> cs, ab cs -> abcs, abcs cs -> ab where
 -- and then could we combine 'multiply with this class?
 
--- | A 'Product' or 'Coproduct' @abcs@ out of which we can factor the product
+-- | A 'Product' or 'Sum' @abcs@ out of which we can factor the product
 -- @ab@, leaving some quotient.
 class (Product ab)=> FactorPrefix ab abcs where
     -- | The quotient of @ab@ factored from @abcs@
@@ -567,7 +566,7 @@ instance (FactorPrefix () abc, FactorPrefix () abcs
 (!!) :: (as ~ (n :=>-> r), n ~ Length as, Exponent n) => as -> n -> r
 xs !! n = fanin xs (n `ofLength` xs)
 
--- | 'Coproduct's of the unit type are our constants in the algebra of ADTs.
+-- | 'Sum's of the unit type are our constants in the algebra of ADTs.
 -- They are cardinal numbers at the type level (length), while their /values/
 -- are ordinal numbers (indicating position).
 class Constant c
