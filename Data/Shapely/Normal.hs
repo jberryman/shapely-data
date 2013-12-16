@@ -37,6 +37,8 @@ compatibility issues when this module is improved.
     -- ** Construction convenience operators
     , single
     , (|>), (<|), (<!)
+    -- ** Forcing types
+    , HavingLength, ary
 
     -- * Product and Sum Conversions
     , MassageableNormal(..)
@@ -60,10 +62,13 @@ compatibility issues when this module is improved.
 
     -- ** Constants
     , Constant(..), Length(..), Replicated(..)
+    -- *** Cardinals
     , One, Two, Three, Four, Five, Six, Seven
-    , OneOrMore(..), _2nd, _3rd, _4th, _5th, _6th, _7th --TODO or _1, _2, ... or _1th, _2th, etc
-    -- *** Utilites
-    , length, ofLength
+    , _1, _2, _3, _4, _5, _6, _7
+    -- *** Ordinals
+    , OneOrMore(..), _2nd, _3rd, _4th, _5th, _6th, _7th --TODO or _1th, _2th, etc
+    -- *** For forcing types
+    , length, _of
   --, _+_ , succ, (math with ordinal numbers; this would add the ordinal representations)
     ) where
 
@@ -82,9 +87,9 @@ import Data.Traversable(Traversable)
 import Data.Proxy
 
 -- TODO:
---      - add in unicode math stuff in docs.
 --      - see about any '*As' variants that might be useful, for type inferrence
 --          - see tests.hs
+--      - look at some awkward signatures; see if we can solve with lexically scoped sig, like forall a. b -> Func a b
 --      - make sure we know exactly how OverlappingInstances and
 --        UndecidableInstances are working and that they're safe here
 --          - double check all uses (remove / recompile / assess)
@@ -103,6 +108,7 @@ import Data.Proxy
 --      - move to closed type families, look at replacing OverlappingInstances
 --        with these by using families for type equality
 --          - use closed type fams in proxy-kindness too
+--          - does this give us some injectivity / better inferrence yet?
 --      - work on PatternFunctor stuff (see branch) now that we have closed TFs
 --      - use some scheme to close type classes (maybe closed type fams will help)
 --      - freeze 'massage' behavior
@@ -114,6 +120,7 @@ import Data.Proxy
 --          - incorporate TypeNat stuff (for specifying length and constructor number)
 --
 --    sometime:
+--      - Do we have nice inference on closed type families yet? revisit constraints
 --      - function that does a series expansion (up to _nth) of a recursive type
 --      - read up about "row types"
 --      - see if where and if we can make interesting use of DataKinds
@@ -454,8 +461,26 @@ data Zero
 length :: (Product as)=> as -> Proxy (Length as)
 length _ = Proxy
 
-ofLength :: (Length as ~ c)=> c -> as -> c
-ofLength = const
+-- | Used as in e.g. @_3rd `_of` _7@, which has inferred type @Seven@.
+_of :: c -> Proxy c -> c
+_of = const
+
+-- I PLZ CAN HAS TYP INFERENCE ON CLOZED TYP FAMYLYS?
+-- | this inverts 'Length'
+class (Product p, Length p ~ c)=> HavingLength c p | c -> p
+instance HavingLength Zero ()
+instance HavingLength () (a,())
+instance (HavingLength c p, Length (a, p) ~ Either () c)=> HavingLength (Either () c) (a, p)
+
+-- | > ary _ = id
+--
+-- Force the arity of an arity-polymorphic function on 'Product's. e.g.
+--
+-- >>> :t _3 `ary` shiftl
+-- _3 `ary` shiftl :: (a, (a1, (a2, ()))) -> ShiftedL (a, (a1, (a2, ())))
+ary :: (HavingLength c p)=> Proxy c -> (p -> x) -> (p -> x)
+ary _ = id
+
 
 type family Length t
 type instance Length () = Zero                              -- | 0
@@ -562,9 +587,9 @@ instance (FactorPrefix () abc, FactorPrefix () abcs
 
 -- | Return the term at the 1-based index @n@ of the 'Homogeneous' 'Product' @xs@.
 --
--- > xs !! n = 'fanin' xs (n `'ofLength'` xs)
-(!!) :: (as ~ (n :=>-> r), n ~ Length as, Exponent n) => as -> n -> r
-xs !! n = fanin xs (n `ofLength` xs)
+-- > xs !! n = 'fanin' xs (n `'_of'` 'length' xs)
+(!!) :: (Product as, as ~ (n :=>-> r), n ~ Length as, Exponent n) => as -> n -> r
+xs !! n = fanin xs (n `_of` length xs)
 
 -- | 'Sum's of the unit type are our constants in the algebra of ADTs.
 -- They are cardinal numbers at the type level (length), while their /values/
@@ -580,6 +605,21 @@ type Four = One :+: Three
 type Five = One :+: Four
 type Six = One :+: Five
 type Seven = One :+: Six
+
+_1 :: Proxy One
+_1 = Proxy
+_2 :: Proxy Two
+_2 = Proxy
+_3 :: Proxy Three
+_3 = Proxy
+_4 :: Proxy Four
+_4 = Proxy
+_5 :: Proxy Five
+_5 = Proxy
+_6 :: Proxy Six
+_6 = Proxy
+_7 :: Proxy Seven
+_7 = Proxy
 
 class Constant c => OneOrMore c where
     _1st :: c
