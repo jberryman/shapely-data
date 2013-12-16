@@ -8,38 +8,47 @@ module Data.Shapely.Normal.Exponentiation
 import Data.Shapely.Normal.Classes
 import Control.Arrow((&&&))
 
--- | The algebraic normal form 'Exponent' @abc@ distributed over the base @r@.
-type family abc :=>-> r
--- | The exponent @r@ distributed over the algebraic normal form 'Base' @abc@.
-type family r :->=> abc
+-- | The algebraic normal form 'Exponent' @abc@ distributed over the single
+-- base variable @x@.
+type family abc :=>-> x
+-- | The single exponent variable @x@ distributed over the algebraic normal
+-- form 'Base' @abc@.
+type family x :->=> abc
     
--- TODO document with nice math symbols
-type instance () :=>-> r = r
-type instance (a,bs) :=>-> r = a -> bs :=>-> r
-type instance Either a bs :=>-> r = (a :=>-> r, AsTail bs :=>-> r)
-type instance Only a :=>-> r = (a :=>-> r, ())
+-- | x¹ = x
+type instance () :=>-> x = x
+-- | x⁽ᵃᵇ⁾ = (xᵇ)ᵃ
+type instance (a,bs) :=>-> x = a -> bs :=>-> x
+-- | x⁽ᵃ⁺ᵇ⁾ = xᵃxᵇ
+type instance Either a bs :=>-> x = (a :=>-> x, AsTail bs :=>-> x)
+type instance Only a :=>-> x = (a :=>-> x, ())
 
-type instance r :->=> () = ()
-type instance r :->=> (a,bs) = (r -> a, r :->=> bs) 
--- type instance r :->=> Either a bs = 
--- type instance r :->=> Only a = 
+-- | 1ˣ = 1
+type instance x :->=> () = ()
+-- | (ab)ˣ = aˣbˣ
+type instance x :->=> (a,bs) = (x -> a, x :->=> bs) 
+-- type instance x :->=> Either a bs = 
+-- type instance x :->=> Only a = 
 --     This is possible but crazy; its the expansion of the multinomial (see
 --     http://en.wikipedia.org/wiki/Multinomial_theorem). TODO: this, then
 --     combine Exponent and Base classes.
 
 
+-- TODO: consider variations with better/different type inferrence.
+--       maybe adding HavingLength constraints would help
+
 
 -- | A class for the exponent laws with the 'Normal' form @abc@ in the exponent
 -- place. See the instance documentation for concrete types and examples.
 class Exponent abc where
-    fanin :: (abc :=>-> r) -> (abc -> r)
-    unfanin :: (abc -> r) -> (abc :=>-> r)
+    fanin :: (abc :=>-> x) -> (abc -> x)
+    unfanin :: (abc -> x) -> (abc :=>-> x)
 
 -- | A class for the exponent laws with the 'Normal' form @abc@ in the base
 -- place. See the instance documentation for concrete types and examples.
 class Base abc where
-    fanout :: (r :->=> abc) -> (r -> abc)
-    unfanout :: (r -> abc) -> (r :->=> abc)
+    fanout :: (x :->=> abc) -> (x -> abc)
+    unfanout :: (x -> abc) -> (x :->=> abc)
 
 instance Exponent () where
     fanin = const
@@ -57,32 +66,34 @@ instance Base () where
 --
 -- >>> fanin (+) (1,(2,()))
 -- 3
+-- >>> unfanin ('_4' `'ary'` ('shiftl' . 'reverse')) 1 2 3 4
+-- (3,(2,(1,(4,()))))
 instance (Exponent bs)=> Exponent (a,bs) where
     fanin f = uncurry (fanin . f)
     unfanin f = unfanin . curry f
     
 -- | [@fanout@] an n-ary @(&&&)@
 --
+--   [@unfanout@] an n-ary @f :: (x -> (a,b)) -> (x -> a, x -> b)@
+--
+-- Examples:
+--
+-- >>> fanout (head,(tail,())) [1..3] == (1,([2,3],()))
+-- True
 instance (Base bs)=> Base (a,bs) where
     fanout (f,fs) = f &&& fanout fs
     unfanout f = (fst . f, unfanout (snd . f))
  -- unfanout = (fst .) &&& (unfanout . (snd .))
 
--- | [@fanin@] an n-ary @(|||)@, and (!!)
+-- | [@fanin@] an n-ary @(|||)@, (and ('Data.Shapely.Normal.!!'))
 --   
---   [@unfanin@] an n-ary TODO
+--   [@unfanin@] an n-ary @f :: (Either a b -> x) -> (a -> x, b -> x)@
 --
 -- Examples:
 --
 -- >>> let s = Right $ Right (1,([2..5],())) :: Either (Int,()) ( Either () (Int,([Int],())) )
 -- >>> fanin ((+1), (3, (foldr (+), ()))) s 
 -- 15
---
--- And for fetching an element at an index...
---
--- >>> let ns = (1,(2,(3,(4,()))))
--- >>> fanin ns (_4th `'ofLength'` ns)
--- 4
 instance (EitherTail bs, Exponent bs, Exponent (AsTail bs), Exponent a)=> Exponent (Either a bs) where
     fanin (f,fs) = eitherTail (fanin f) (fanin fs)
     unfanin f = (unfanin (f . Left), unfanin (f . Right . fromTail))

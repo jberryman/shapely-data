@@ -136,6 +136,8 @@ test_unfanin_sum =
         f (Right (Right (_,(s,())))) = s
      in fanin (unfanin f) s  == "true"
 
+-- NOTE: 'ary' is required for inference here
+test_ary_with_unfanin = (unfanin (_4 `ary` (shiftl . Sh.reverse)) 1 2 3 4) == (3,(2,(1,(4,()))))
 
 -- APPEND
 {-
@@ -158,6 +160,7 @@ test_toList2 =  null $ toList $ toFList ()
 test_homogenous_inferrence = (\(a,as) -> a == 1) $ fromFList $ toFList (1,(2,(3,())))
 
 -- CARTESIAN-ESQUE
+-- NOTE: ambiguous without `==`
 test_fanout_prod = fanout (head,(tail,(Prelude.length,()))) [1..3] == (1,([2,3],(3,())))
 
 
@@ -407,6 +410,9 @@ test_toList2 = ( toList $ toFList () ) == []
 -- currently we need: _4th `asLength` as
 fanin (1,(2,(3,(4,())))) _4th
 
+
+-- we'd like this type to be inferable (AGAIN TECHNICALLY POSSIBLE WITH CLOSED TYPE FAMILIES)
+test_fanout_prod = fanout (head,(tail,(Prelude.length,()))) [1..3] == (1,([2,3],(3,())))
 
 -}
 
