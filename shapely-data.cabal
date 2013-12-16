@@ -1,6 +1,6 @@
 Name:                shapely-data
 
-Version:             0.0
+Version:             0.1
 
 Synopsis:            Template haskell conversion of types to a "structural form" built from primitive sum, product, and unit types.
 
@@ -29,12 +29,13 @@ Maintainer:          brandon.m.simmons@gmail.com
 -- Copyright:           
 
 Category:            Data
+Category:            Generics
 
 Build-type:          Simple
 
 Extra-source-files:  README.md
 
-Cabal-version:       >=1.6
+Cabal-version:       >= 1.8
 
 source-repository head   
     type:     git
@@ -43,19 +44,49 @@ source-repository head
 
 Library
   Exposed-modules:     Data.Shapely
+                     , Data.Shapely.Normal
+                     , Data.Shapely.Spine
+                     , Data.Shapely.Normal.TypeIndexed
+
+  Other-modules:       Data.Shapely.Category
+                     , Data.Shapely.Bool
+                     , Data.Shapely.Classes
+                     , Data.Shapely.Normal.Classes
+                     , Data.Shapely.Normal.Exponentiation
+                     , Data.Shapely.Normal.Isomorphic
+                     , Data.Shapely.Normal.Massageable
+                     , Data.Shapely.TH
+                     , Data.Shapely.Utilities
+  
+  ghc-options: -Wall
   
   Build-depends:       base <5
                      , template-haskell >= 2 && < 3
                      , tagged
                      , proxy-kindness == 0.1
   
+  -- TODO: what's appropriate here?
   Extensions:          MultiParamTypeClasses
                      , FunctionalDependencies
                      , TemplateHaskell
 
-  -- Modules not exported by this package.
-  -- Other-modules:       
-  
-  -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.
-  -- Build-tools:         
-  
+
+test-suite test
+  type: exitcode-stdio-1.0
+
+  main-is: tests.hs
+
+  -- ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-unused-do-bind
+  -- extensions: NamedFieldPuns
+
+  Build-depends:       base <5
+                     , template-haskell >= 2 && < 3
+                     , tagged
+                     , proxy-kindness == 0.1
+                     -- new:
+                     , QuickCheck >= 2, containers, shapely-data
+
+
+  Extensions:          MultiParamTypeClasses
+                     , FunctionalDependencies
+                     , TemplateHaskell

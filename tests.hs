@@ -6,8 +6,8 @@
 module Main
     where
 
--- Where a declaration starts with "test_" and has no type sig, it is a Bool
--- that needs to be checked; otherwise we just care that things in here
+-- Where a declaration starts with "prop_smoketest_" and has no type sig, it is
+-- a Bool that needs to be checked; otherwise we just care that things in here
 -- typecheck.
 --
 -- Contributers: Any changes that simplify or improve the structure of the
@@ -18,15 +18,11 @@ import Data.Shapely
 import Data.Shapely.Normal as Sh
 import Data.Shapely.Normal.TypeIndexed
 import Data.Shapely.Spine
-
 import Data.Proxy
 import Control.Monad(forM)
-
 import Data.Foldable(toList)
-
 import Data.Tree
-
--- TODO: why did we start saying "*_pred" ? Rename "test_*" and some TH to gather all of them in `main`
+import Test.QuickCheck.All
 
 --  TODO QUESTIONS:
     -- How does massageable work with polymorphic terms?
@@ -34,6 +30,11 @@ import Data.Tree
     -- can we use the "extra method trick"?
     -- what about types like data `Fix f = f (Fix f)`
 
+main = do passed <- $quickCheckAll 
+          if passed then putStrLn "Ok" else error "Some tests failed"
+
+
+-- ---------------------------
 
 s :: (Int,()) :+: (Char,()) :+: (Bool :*! String)
 --   Either (Int,()) (Either (Char,()) (Bool,(String,())))
@@ -44,18 +45,18 @@ p = 1 <| 'a' <! True
 --  (1,('a',(True,())))
 
 
-test_constructorsOfNormal_prod = constructorsOfNormal ('a',('b',())) 'x' 'y'  ==  ('x',('y',()))
+prop_smoketest_constructorsOfNormal_prod = constructorsOfNormal ('a',('b',())) 'x' 'y'  ==  ('x',('y',()))
 
 {-
 -- CONCATABLE
 concated_p :: (Int,(Char,(Bool,(Int,(Char,(Bool,()))))))
 concated_p = Sh.concat (p, (p, ()))
 
-test_concated_s = ( Sh.concat $ (Right s  :: Either (Either (Int,()) (Either (Char,()) (Bool,())))  (Either (Int,()) (Either (Char,()) (Bool,(String,())))) ) )
+prop_smoketest_concated_s = ( Sh.concat $ (Right s  :: Either (Either (Int,()) (Either (Char,()) (Bool,())))  (Either (Int,()) (Either (Char,()) (Bool,(String,())))) ) )
                     == Right (Right (Right (Right (Right (True,("true",()))))))
 -}
 
-test_distributeTerm = 
+prop_smoketest_distributeTerm = 
     let s' = Right (Right (1,(True,("true",(9,())))))
      in s' == 1 *< s >* 9
 
@@ -79,9 +80,9 @@ multiply1
                             (Bool, ([Char], (Bool, (String, ())))))))))))
 multiply1 = s >*< s
 
-test_multiply2 = p >*< () >*< p == 1 <| 'a' <| True <| 1 <| 'a' <! True
+prop_smoketest_multiply2 = p >*< () >*< p == 1 <| 'a' <| True <| 1 <| 'a' <! True
 
-test_multiply_monoid = and $ 
+prop_smoketest_multiply_monoid = and $ 
     [ () >*< p == p
     , p >*< () == p
     , () >*< s == s
@@ -120,24 +121,24 @@ pl :: (Char,(Bool,(Int,())))
 pl = shiftl p
 
 -- FANIN
-test_fanin_prod = Sh.fanin (\i c b-> if b then (i,c) else (9,'z')) p  ==  (1,'a')
-test_unfanin_prod = Sh.fanin (Sh.unfanin(\(i,(c,(b,())))-> if b then (i,c) else (9,'z'))) p  ==  (1,'a')
+prop_smoketest_fanin_prod = Sh.fanin (\i c b-> if b then (i,c) else (9,'z')) p  ==  (1,'a')
+prop_smoketest_unfanin_prod = Sh.fanin (Sh.unfanin(\(i,(c,(b,())))-> if b then (i,c) else (9,'z'))) p  ==  (1,'a')
 
-test_fanin_sum = 
+prop_smoketest_fanin_sum = 
         -- the sum arg must be unambiguous, but hopefully in practice a
         -- type signature won't be necessary (when e.g. the sum is a
         -- TH-generated instance):
         let s' = Right $ Right (1,([2..5],())) :: Either (Int,()) ( Either () (Int,([Int],())) )
          in fanin ((+1), (3, (foldr (+), ()))) s'  ==  15
 
-test_unfanin_sum = 
+prop_smoketest_unfanin_sum = 
     let f (Left (_,())) = "a"
         f (Right (Left (_,()))) = "b"
         f (Right (Right (_,(s,())))) = s
      in fanin (unfanin f) s  == "true"
 
 -- NOTE: 'ary' is required for inference here
-test_ary_with_unfanin = (unfanin (_4 `ary` (shiftl . Sh.reverse)) 1 2 3 4) == (3,(2,(1,(4,()))))
+prop_smoketest_ary_with_unfanin = (unfanin (_4 `ary` (shiftl . Sh.reverse)) 1 2 3 4) == (3,(2,(1,(4,()))))
 
 -- APPEND
 {-
@@ -155,28 +156,28 @@ appended_s = let s_ss = (Right s) :: Either ( Either (Char,()) (Int,()) )  ( Eit
 -}
 
 -- Homogeneous
-test_toList = ( toList $ toFList (1,(2,(3,()))) ) == [1,2,3]
-test_toList2 =  null $ toList $ toFList ()  
-test_homogenous_inferrence = (\(a,as) -> a == 1) $ fromFList $ toFList (1,(2,(3,())))
+prop_smoketest_toList = ( toList $ toFList (1,(2,(3,()))) ) == [1,2,3]
+prop_smoketest_toList2 =  null $ toList $ toFList ()  
+prop_smoketest_homogenous_inferrence = (\(a,as) -> a == 1) $ fromFList $ toFList (1,(2,(3,())))
 
 -- CARTESIAN-ESQUE
 -- NOTE: ambiguous without `==`
-test_fanout_prod = fanout (head,(tail,(Prelude.length,()))) [1..3] == (1,([2,3],(3,())))
+prop_smoketest_fanout_prod = fanout (head,(tail,(Prelude.length,()))) [1..3] == (1,([2,3],(3,())))
 
 
 -- test of inferrence convenience:
-test_repeat = (3  ==) $ (\(x,(y,(z,())))-> x+y+z) $ Sh.repeat 1
+prop_smoketest_repeat = (3  ==) $ (\(x,(y,(z,())))-> x+y+z) $ Sh.repeat 1
 -- THIS DOESN'T WORK, HOWEVER. any way to restructure fanin to make inferrence possible?
 -- repeat_test2 = (3 ==) $ Sh.uncurry (\x y z-> x+y+z) $ Sh.repeat 1
-test_repeat2 = (3 ==) $ Sh.fanin (\x y z-> x+y+z) (Sh.repeat 1 :: (Int,(Int,(Int,()))))
+prop_smoketest_repeat2 = (3 ==) $ Sh.fanin (\x y z-> x+y+z) (Sh.repeat 1 :: (Int,(Int,(Int,()))))
 
-test_replicate = (\(_,(a,_)) -> a == 2) $ Sh.replicate (Proxy :: Proxy (Either () (Either () ()))) 2
+prop_smoketest_replicate = (\(_,(a,_)) -> a == 2) $ Sh.replicate (Proxy :: Proxy (Either () (Either () ()))) 2
 
-test_extract = let s' :: Either (Int,()) (Either (Int,()) (Int,()))
-                   s' = Right (Right (1,()))
-                in extract s'  ==  (1,())
+prop_smoketest_extract = let s' :: Either (Int,()) (Either (Int,()) (Int,()))
+                             s' = Right (Right (1,()))
+                          in extract s'  ==  (1,())
 
-test_factorPrefix = ('a',(True,())) == 
+prop_smoketest_factorPrefix = ('a',(True,())) == 
     (fst $ factorPrefix (Left ('a',(True,('b',()))) :: Either (Char,(Bool,(Char,()))) (Char,(Bool,())) ))
 
 -------- MASSAGEABLE
@@ -208,9 +209,9 @@ md = (Left ('a',('b',(3,())))) :: Either (Char,(Char,(Int,()))) ()
 md_0 :: Either (Char,(Char,(Bool,()))) (Either () (Char,(Char,(Int,()))))
 md_0 = massageNormal md 
 
-md_1_pred = ( massageNormal md :: Either (Char,(Int,(Char,()))) (Either () (Char,(Char,(Int,())))) ) == (Right $ Right ('a',('b',(3,()))))
-md_2_pred = ( massageNormal ('a',('b',(True,()))) :: Either (Bool,()) (Char,(Char,(Bool,()))) ) == (Right ('a',('b',(True,()))))
-md_3_pred = ( massageNormal ('a',('b',())) :: Either (Char,(Char,())) (Either () (Int,())) ) == (Left ('a',('b',())))
+prop_smoketest_md_1 = ( massageNormal md :: Either (Char,(Int,(Char,()))) (Either () (Char,(Char,(Int,())))) ) == (Right $ Right ('a',('b',(3,()))))
+prop_smoketest_md_2 = ( massageNormal ('a',('b',(True,()))) :: Either (Bool,()) (Char,(Char,(Bool,()))) ) == (Right ('a',('b',(True,()))))
+prop_smoketest_md_3 = ( massageNormal ('a',('b',())) :: Either (Char,(Char,())) (Either () (Int,())) ) == (Left ('a',('b',())))
 
 {- 
 -- must not typecheck
@@ -224,26 +225,26 @@ massageNormal md :: Either (Char,(Char,(Bool,()))) (Either (Int,()) (Char,(Char,
 -}
 
 -- Testing recursion:
-mr_id_pred = massage "foo" == "foo"
+prop_smoketest_mr_id = massage "foo" == "foo"
 
 data OrderedRec = OCons Int Int OrderedRec | ONull deriving Eq
 $(deriveShapely ''OrderedRec)
-orderedr_id_pred = massage (OCons 1 1 (OCons 2 2 ONull)) == (OCons 1 1 (OCons 2 2 ONull))
+prop_smoketest_orderedr_id = massage (OCons 1 1 (OCons 2 2 ONull)) == (OCons 1 1 (OCons 2 2 ONull))
 
 -- [a] with both order of products and sums reversed:
 data Tsil a = Snoc (Tsil a) a
           | Lin
           deriving Eq
 $(deriveShapely ''Tsil)
-m_unorderedr_pred = massage "123" == Snoc (Snoc (Snoc Lin '3') '2') '1'
+prop_smoketest_m_unorderedr = massage "123" == Snoc (Snoc (Snoc Lin '3') '2') '1'
 
 
 
 -------- TYPE-INDEXED 
 
-test_viewFirstTypeOf_prod =  (('a',(False,(True,("potato",())))) `viewFirstTypeOf` True) 
+prop_smoketest_viewFirstTypeOf_prod =  (('a',(False,(True,("potato",())))) `viewFirstTypeOf` True) 
                               == (False,('a',(True,("potato",()))))
-test_viewTypeOf_prod =  (('a',(False,(True,("potato",())))) `viewFirstTypeOf` "tuber") 
+prop_smoketest_viewTypeOf_prod =  (('a',(False,(True,("potato",())))) `viewFirstTypeOf` "tuber") 
                         == ("potato",('a',(False,(True,()))))
 
 viewTypeOf_sum1 :: Either (Int, ()) (Either (Char, ()) (Bool :*! String))
@@ -255,8 +256,8 @@ viewTypeOf_sum2 = s `viewTypeOf` ('a',())
 viewTypeOf_sum3 :: Either (Bool :*! String) (Either (Int, ()) (Char, ()))
 viewTypeOf_sum3 = s `viewTypeOf` (True,("string",()))
 
-test_viewFirstTypeOf_sum1 = (Left () :: Either () ()) `viewFirstTypeOf` ()  ==  Left ()
-test_viewFirstTypeOf_sum2 = (Right $ Left () :: Either (Int,()) (Either () ())) `viewFirstTypeOf` ()  ==  Left ()
+prop_smoketest_viewFirstTypeOf_sum1 = (Left () :: Either () ()) `viewFirstTypeOf` ()  ==  Left ()
+prop_smoketest_viewFirstTypeOf_sum2 = (Right $ Left () :: Either (Int,()) (Either () ())) `viewFirstTypeOf` ()  ==  Left ()
 
 {- MUST NOT TYPECHECK: 
      ('a',(False,(True,("potato",())))) `viewTypeOf` True
@@ -290,9 +291,10 @@ $(deriveShapely ''F)
 data Li = Em | Co Char Li deriving Eq
 $(deriveShapely ''Li)
 
-th_rec_pred = let a = "works" 
-                  b = Co 'w' $ Co 'o' $ Co 'r' $ Co 'k' $ Co 's' $ Em
-               in coerce a == b && coerce b == a
+prop_smoketest_th_rec = 
+    let a = "works" 
+        b = Co 'w' $ Co 'o' $ Co 'r' $ Co 'k' $ Co 's' $ Em
+     in coerce a == b && coerce b == a
 
 
 data SimpleTree a = SBr (SimpleTree a) a (SimpleTree a)
@@ -308,7 +310,7 @@ data RTree a = RBr (LTree a) a (RTree a)
 $(fmap Prelude.concat $ forM [''LRTree , ''LTree , ''RTree ] deriveShapely)
 
 -- test deeper recursive structure: 
-th_rec_multi_pred = 
+prop_smoketest_th_rec_multi = 
     let lrTree = LRTop (LBr LEm 'b' REm) 'a' (RBr LEm 'b' REm)
       --st0 = (Proxy :: Proxy (LRTree Char), (Proxy :: Proxy (LTree Char), (Proxy :: Proxy (RTree Char), ())))
         st0 = spine :: LRTree Char :-: LTree Char :-! RTree Char
@@ -332,7 +334,7 @@ data R2Tree a b = R2Br (L2Tree b a) a b (R2Tree b a)
 $(fmap Prelude.concat $ forM [''LR2Tree , ''L2Tree , ''R2Tree ] deriveShapely)
 
 -- test deeper recursive structure: 
-th_rec_multi_parameter_agnostic_pred = 
+prop_smoketest_th_rec_multi_parameter_agnostic = 
     let lrTree = LR2Top (L2Br (L2Br L2Em 'c' True R2Em) False 'b' R2Em) 'a' True (R2Br L2Em False 'b' R2Em)
         st = spine :: LR2Tree :-: L2Tree :-! R2Tree
         -- this avoids enumerating a/b, b/a variants for all types:
@@ -346,7 +348,7 @@ data RegRecParams1 a b = RRPCons1 a b (RegRecParams1 b a) | RRPNil1 deriving (Eq
 data RegRecParams2 a b = RRPCons2 a b (RegRecParams2 b a) | RRPNil2 deriving (Eq,Show)
 $(fmap Prelude.concat $ forM [''RegRecParams1, ''RegRecParams2] deriveShapely)
 
-th_rec_reg_param_swapping_coerce_pred = 
+prop_smoketest_th_rec_reg_param_swapping_coerce = 
     (coerce $ RRPCons1 'a' True RRPNil1) == RRPCons2 'a' True RRPNil2
 
 coerce_recursive_self :: [Char]
@@ -362,7 +364,7 @@ $(fmap Prelude.concat $ forM [''Tree, ''OurTree, ''OurForest] deriveShapely)
 ourTree = OurNode 'a' (OurForestCons (OurNode 'b' OurEmptyForest) (OurForestCons (OurNode 'c' OurEmptyForest) OurEmptyForest)) 
 theirTree = Node 'a' ( [ Node 'b' [] , Node 'c' [] ]) 
 
-test_coerceWith_type_application = coerceWith (spine :: OurTree :-! OurForest) ourTree  == theirTree  &&
+prop_smoketest_coerceWith_type_application = coerceWith (spine :: OurTree :-! OurForest) ourTree  == theirTree  &&
                                    coerceWith (spine :: [] :-! Tree) theirTree == ourTree
 {- TODO WE WOULD LIKE TO SUPPORT THIS:
  - where we need Shapely of OurForest to inline the newtype wrapper
@@ -377,7 +379,7 @@ theirTree = Node 'a' ( [ Node 'b' [] , Node 'c' [] ])
 data WithFunctorTerm1 = WFT1 (Maybe WithFunctorTerm1) (Maybe [Int]) deriving Eq
 data WithFunctorTerm2 = WFT2 (Maybe WithFunctorTerm2) (Maybe [Int]) deriving Eq
 $(fmap Prelude.concat $ forM [''WithFunctorTerm1, ''WithFunctorTerm2] deriveShapely)
-test_functor_term_sanity = coerce (WFT1 Nothing $ Just [1..3]) == (WFT2 Nothing $ Just [1..3]) ---- TODO OVERLAPPING!!!!!!
+prop_smoketest_functor_term_sanity = coerce (WFT1 Nothing $ Just [1..3]) == (WFT2 Nothing $ Just [1..3]) ---- TODO OVERLAPPING!!!!!!
 
 
 
@@ -385,34 +387,34 @@ test_functor_term_sanity = coerce (WFT1 Nothing $ Just [1..3]) == (WFT2 Nothing 
 -- ------------------------------
 -- TODO test these after sprucing up type funcs with incidental overlapping instances
 {-
-th_rec_reg_param_swapping_coerce_pred = 
+prop_smoketest_th_rec_reg_param_swapping_coerce = 
     (coerce RRPNil1) == (RRPNil2 :: RegRecParams2 Char Bool)
 
-th_rec_reg_poly_param_swapping_coerce_pred = 
+prop_smoketest_th_rec_reg_poly_param_swapping_coerce = 
     let (x,y) = (RRPNil1,coerce x) :: (RegRecParams1 a b, RegRecParams2 a b)
      in y == RRPNil2
     -- But note: this is also (at the top level) ambiguous:
     -- foo = RRPNil2 == RRPNil2
 
-th_rec_reg_poly_param_swapping_coerce_pred :: (RegRecParams1 a b, RegRecParams2 a b)
-th_rec_reg_poly_param_swapping_coerce_pred = 
+th_rec_reg_poly_param_swapping_coerce :: (RegRecParams1 a b, RegRecParams2 a b)
+th_rec_reg_poly_param_swapping_coerce = 
     let (x,y) = (RRPNil1, coerce x) 
      in (x,y)
 
 -- if we can make FactorPrefix look like:
 -- class (Product ab)=> FactorPrefix ab abcs cs | ab abcs -> cs, ab cs -> abcs, abcs cs -> ab where
 -- we'd get better inferrence, supporting:
-test_factorPrefix2 = ( ('a',(True,())) , (Left ('b',())) :: Either (Char,()) () ) == 
+prop_smoketest_factorPrefix2 = ( ('a',(True,())) , (Left ('b',())) :: Either (Char,()) () ) == 
     (factorPrefix (Left ('a',(True,('b',())))  ))
 
-test_toList2 = ( toList $ toFList () ) == []
+prop_smoketest_toList2 = ( toList $ toFList () ) == []
 
 -- currently we need: _4th `asLength` as
 fanin (1,(2,(3,(4,())))) _4th
 
 
 -- we'd like this type to be inferable (AGAIN TECHNICALLY POSSIBLE WITH CLOSED TYPE FAMILIES)
-test_fanout_prod = fanout (head,(tail,(Prelude.length,()))) [1..3] == (1,([2,3],(3,())))
+prop_smoketest_fanout_prod = fanout (head,(tail,(Prelude.length,()))) [1..3] == (1,([2,3],(3,())))
 
 -}
 
