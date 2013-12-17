@@ -43,6 +43,8 @@ source-repository head
     branch:   master
 
 Library
+  hs-source-dirs: src
+
   Exposed-modules:     Data.Shapely
                      , Data.Shapely.Normal
                      , Data.Shapely.Spine
@@ -74,17 +76,20 @@ Library
 test-suite test
   type: exitcode-stdio-1.0
 
-  main-is: tests.hs
+  hs-source-dirs: test, src
+                 
+  main-is: Main.hs
 
-  -- ghc-options: -Wall -fno-warn-name-shadowing -fno-warn-unused-do-bind
-  -- extensions: NamedFieldPuns
+  -- ghc-options: -fhpc
 
   Build-depends:       base <5
                      , template-haskell >= 2 && < 3
                      , tagged
                      , proxy-kindness == 0.1
                      -- new:
-                     , QuickCheck >= 2, containers, shapely-data
+                     , QuickCheck >= 2, containers
+                     -- is this right?
+                     , shapely-data 
 
 
   Extensions:          MultiParamTypeClasses

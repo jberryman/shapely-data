@@ -88,18 +88,14 @@ import Data.Traversable(Traversable)
 import Data.Proxy
 
 -- TODO:
---      - see about any '*As' variants that might be useful, for type inferrence
---          - see tests.hs
+--      - fix warnings
 --      - look at some awkward signatures; see if we can solve with lexically scoped sig, like forall a. b -> Func a b
 --      - make sure we know exactly how OverlappingInstances and
 --        UndecidableInstances are working and that they're safe here
 --          - double check all uses (remove / recompile / assess)
 --      - documentation:
---          - notes about Algebraic stuff
 --          - fix 'limitations' section
 --          - make a note about future plans for inlining.
---      - implement thorough tests for 'massage', and TH-derived stuff.
---          - especially recursion, which we haven't tested well
 --      - take last look at easy construction of normal-form types
 --      - create some examples that re-create GHC generics motivation
 --      - finalize exports, modules, finish cabal file w/ proper docs & motivation
