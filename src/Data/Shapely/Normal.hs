@@ -62,7 +62,7 @@ compatibility issues when this module is improved.
     , constructorsOfNormal
 
     -- ** Constants
-    , Constant(..), Length(..), Replicated(..)
+    , Constant, Length, Replicated
     -- *** Cardinals
     , One, Two, Three, Four, Five, Six, Seven
     , _1, _2, _3, _4, _5, _6, _7
@@ -75,7 +75,6 @@ compatibility issues when this module is improved.
 
 import Data.Shapely.Category
 import Data.Shapely.Normal.Classes
-import Data.Shapely.Classes
 import Data.Shapely.Normal.Massageable
 import Data.Shapely.Normal.Exponentiation
 import Control.Applicative() -- Functor instances for (,) and Either
@@ -88,7 +87,6 @@ import Data.Traversable(Traversable)
 import Data.Proxy
 
 -- TODO:
---      - fix warnings
 --      - look at some awkward signatures; see if we can solve with lexically scoped sig, like forall a. b -> Func a b
 --      - make sure we know exactly how OverlappingInstances and
 --        UndecidableInstances are working and that they're safe here
@@ -457,6 +455,9 @@ data Zero
 
 length :: (Product as)=> as -> Proxy (Length as)
 length _ = Proxy
+
+-- TODO: can this be used to construct a coproduct, specifying the product and
+--       position and size in some way? Otherwise create those functions
 
 -- | Used as in e.g. @_3rd `_of` _7@, which has inferred type @Seven@.
 _of :: c -> Proxy c -> c

@@ -3,7 +3,7 @@
   , DataKinds  -- for True/False
   #-}
 module Data.Shapely.Normal.TypeIndexed (
-      HasAny(..)
+      HasAny
     , viewType , viewTypeOf
     , HavingType(..)
     -- ** On 'Product's
@@ -15,8 +15,6 @@ module Data.Shapely.Normal.TypeIndexed (
 
 import Data.Shapely.Category
 import Data.Shapely.Normal.Classes
-import Data.Shapely.Bool
-import Data.Shapely.Classes
 
 -- TODO 
 --    - type indexed 'factor' (and even 'distribute')

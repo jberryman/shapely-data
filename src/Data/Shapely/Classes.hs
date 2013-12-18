@@ -12,8 +12,6 @@ module Data.Shapely.Classes
 -- internal module to avoid circular dependencies
 
 import Data.Shapely.Normal.Exponentiation
-import Data.Shapely.Normal.Classes
-
 
 
 -- | Instances of the 'Shapely' class can be converted to and from a 'Normal'

@@ -56,7 +56,7 @@ instance Exponent () where
 
 instance Base () where
     fanout = const
-    unfanout f = ()
+    unfanout _ = ()
 
 -- | [@fanin@] an n-ary @uncurry@ 
 --   

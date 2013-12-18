@@ -14,9 +14,7 @@ module Data.Shapely.Normal.Isomorphic
 
 import Data.Shapely.Category
 import Data.Shapely.Classes
-import Data.Shapely.Normal.Classes
 import Data.Shapely.Utilities
-import Data.Shapely.Bool
 
 import Data.Shapely.Spine
 import Data.Proxy.Kindness

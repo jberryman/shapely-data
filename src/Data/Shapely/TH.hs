@@ -4,12 +4,7 @@ module Data.Shapely.TH (
   ) where
 
 import Data.Shapely.Classes
-import Data.Shapely.Normal as Sh
-
 import Language.Haskell.TH
-import Language.Haskell.TH.Syntax
-import Data.List
-import Control.Monad
 
 
 -- TODO:
@@ -88,12 +83,12 @@ drvShapely t cnstrctrs =
     toClauses sumWrapper (c:cs) = 
       toClauseProd (sumWrapper . AppE (ConE 'Left)) c 
         : toClauses (sumWrapper . AppE (ConE 'Right)) cs
-    toClauses sumWrapper _ = error "Type has no constructors, so has no 'shape'."
+    toClauses _ _ = error "Type has no constructors, so has no 'shape'."
 
     toClauseProd :: (Exp -> Exp) -> BasicCon -> Clause
     toClauseProd sumWrapper (n, ts) = 
       Clause [ConP n boundVars] (NormalB $ sumWrapper prodBody) [] -- e.g. to { (Fook a b) = Left (a,(b,())) }
-        where boundNames = map (mkName . ("a"++) . show) $ map fst $ zip [0..] ts 
+        where boundNames = map (mkName . ("a"++) . show) $ map fst $ zip [(0 :: Int)..] ts 
               boundVars :: [Pat]
               boundVars = map VarP boundNames   -- e.g. to (Fook { a0 a1 }) = ...
               prodBody :: Exp
@@ -114,7 +109,7 @@ basicCon :: Con -> BasicCon
 basicCon (NormalC n sts)          = (n, map snd sts)
 basicCon (RecC n vsts)            = (n, map (\(_,_,t)-> t) vsts)
 basicCon (InfixC (_,t0) n (_,t1)) = (n, [t0,t1])
-basicCon (ForallC bnds cxt con) = error "forall not handled yet" -- not sure how/if this would work
+basicCon (ForallC _ _ _)          = error "forall not handled yet" -- not sure how/if this would work
 
 
 mkType :: Name -> [TyVarBndr] -> Type

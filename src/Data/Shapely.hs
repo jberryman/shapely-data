@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleContexts #-}   -- necessary for Shapely Generics instances
 {-# LANGUAGE TypeOperators #-}       -- for our cons synonym
 {-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 -- TODO clean up above
 module Data.Shapely (
 -- TODO: move this to the .cabal file
@@ -30,7 +31,7 @@ module Data.Shapely (
   - Performance hasn't been tested at all yet.
 
  -}
-      Product(..), Sum(..)
+      Product, Sum
     , Shapely(..)
     -- * Deriving Shapely instances automatically
     , deriveShapely
