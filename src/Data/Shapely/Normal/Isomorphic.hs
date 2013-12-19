@@ -2,7 +2,7 @@
  , TypeFamilies
  , FlexibleInstances, FlexibleContexts
  , OverlappingInstances -- for IsomorphicNormalWith to support recursive subterms
- , UndecidableInstances -- for Isomorphic instance
+ , UndecidableInstances
  , FunctionalDependencies -- for IsOfBaseType
  , ScopedTypeVariables -- for bool passing trick in 2nd IsoTerms instance
  , PolyKinds, DataKinds

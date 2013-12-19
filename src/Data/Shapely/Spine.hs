@@ -2,7 +2,7 @@
  , FlexibleContexts
  , ScopedTypeVariables
  , TypeOperators
- , UndecidableInstances  -- for (Shapely tab, Applied t tab) constraint, which should always be decidable
+ , UndecidableInstances  -- for (Shapely tab, Applied t tab) constraint
  #-}
 module Data.Shapely.Spine (
 {- | 

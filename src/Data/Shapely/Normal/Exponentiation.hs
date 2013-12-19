@@ -1,4 +1,5 @@
-{-# LANGUAGE TypeOperators, TypeFamilies , MultiParamTypeClasses , FunctionalDependencies , FlexibleInstances , UndecidableInstances #-}
+{-# LANGUAGE TypeOperators, TypeFamilies , MultiParamTypeClasses , FunctionalDependencies , FlexibleInstances , FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-} -- for nested type family application `AsTail` in `:=>->`
 module Data.Shapely.Normal.Exponentiation
     where
 
@@ -85,7 +86,7 @@ instance (Base bs)=> Base (a,bs) where
     unfanout f = (fst . f, unfanout (snd . f))
  -- unfanout = (fst .) &&& (unfanout . (snd .))
 
--- | [@fanin@] an n-ary @(|||)@, (and ('Data.Shapely.Normal.!!'))
+-- | [@fanin@] an n-ary @(|||)@ or 'either', (and ('Data.Shapely.Normal.!!'))
 --   
 --   [@unfanin@] an n-ary @f :: (Either a b -> x) -> (a -> x, b -> x)@
 --

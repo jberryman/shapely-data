@@ -1,4 +1,7 @@
-{-# LANGUAGE TypeFamilies, TypeOperators, FlexibleInstances, UndecidableInstances #-}
+{-# LANGUAGE TypeFamilies, TypeOperators, FlexibleInstances, FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}  -- nested type families: 
+                                       --     Init (Either x (Either y zs)) = x :< Init (Either y zs)
+                                       --     Either x0 xs :> x = Either x0 (Tail (Either x0 xs) :> x)
 module Data.Shapely.Normal.Classes
     where
 
@@ -41,7 +44,7 @@ type instance NormalConstr () = (,)
 type instance NormalConstr (Either a b) = Either
 
 
-
+-- TODO look at which of these we use, and reassess definitions and names in light of algebraic approach 
 -- TODO: consider making all Left parameters and results of sums explicitly () and (a,b)
 
 type family Head xs

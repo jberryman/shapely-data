@@ -5,7 +5,6 @@
 {-# LANGUAGE FlexibleContexts #-}   -- necessary for Shapely Generics instances
 {-# LANGUAGE TypeOperators #-}       -- for our cons synonym
 {-# LANGUAGE StandaloneDeriving #-}   -- these two for deriving AlsoNormal instances
-{-# LANGUAGE UndecidableInstances #-}
 module Data.Shapely.Classes
     where
 
