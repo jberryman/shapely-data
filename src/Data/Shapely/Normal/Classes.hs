@@ -83,8 +83,6 @@ type instance x :< () = (x,())
 type instance x :< (y,zs) = (x,(y,zs))
 
 -- OUR USE OF UndecidableInstances:
---   Since we obviously intend these to be closed type families this isn't a
---   concern.
 type family xs :> x
 type instance () :> x = (x,())
 type instance (x0,xs) :> x = (x0, xs :> x)
@@ -95,8 +93,9 @@ type instance Only a :> b = Either a b
 
 
 -- | A singleton inhabited 'Sum'. This is an intermediate type useful for
--- constructing Conproducts, and in our instances (see e.g. 'Tail')
+-- constructing sums, and in our instances (see e.g. 'Tail')
 newtype Only a = Only { just :: a }
+    deriving (Show, Read, Eq, Ord)
 
 type instance NormalConstr (Only a) = Either
 instance (Product t)=> Sum (Only t)

@@ -4,7 +4,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE UndecidableInstances #-}  -- for nested Type families. We intend these to be closed anyway, so no biggie
+{-# LANGUAGE UndecidableInstances #-}  -- for nested Type family: Reversed (Tail t) :> Head t
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 -- NO OVERLAPPING INSTANCES HERE, PLEASE
@@ -87,14 +87,9 @@ import Data.Traversable(Traversable)
 import Data.Proxy
 
 -- TODO:
---      - look at some awkward signatures; see if we can solve with lexically scoped sig, like forall a. b -> Func a b
---      - make sure we know exactly how OverlappingInstances and
---        UndecidableInstances are working and that they're safe here
---          - double check all uses (remove / recompile / assess)
 --      - documentation:
 --          - fix 'limitations' section
---          - make a note about future plans for inlining.
---      - take last look at easy construction of normal-form types
+--      - maybe define number of constants up to size of tuple we derived instance for (15)
 --      - create some examples that re-create GHC generics motivation
 --      - finalize exports, modules, finish cabal file w/ proper docs & motivation
 --
@@ -104,6 +99,9 @@ import Data.Proxy
 --        with these by using families for type equality
 --          - use closed type fams in proxy-kindness too
 --          - does this give us some injectivity / better inferrence yet?
+--      - in class declarations, consider removing constraints (but keeping
+--         them on instances) this will help clean up signatures on polymorphic
+--         functions. This will probably be more efficient more of the time too.
 --      - work on PatternFunctor stuff (see branch) now that we have closed TFs
 --      - use some scheme to close type classes (maybe closed type fams will help)
 --      - freeze 'massage' behavior
@@ -115,6 +113,13 @@ import Data.Proxy
 --          - incorporate TypeNat stuff (for specifying length and constructor number)
 --
 --    sometime:
+--      - constraint kinds: hmmm...
+--          can we somehow use this for predicate classes (we'd like that for Functor)
+--            (allows constraints to be indexed by types...)
+--          we should be able to do this with closed type families where a
+--          nested (f source) (f target) evaluates to a Functor constraint, else ()
+--          ...at least we can simplify constraints
+--      - maybe an nthMap function on Sums
 --      - Do we have nice inference on closed type families yet? revisit constraints
 --      - function that does a series expansion (up to _nth) of a recursive type
 --      - read up about "row types"
@@ -380,8 +385,9 @@ type instance (x,xs) :>*: a = (x, xs :>*: a)
 type instance Either xs yss :>*: a = Either (xs :>*: a) (yss :>*: a)
 
 -- | Algebraic multiplication of a term with some 'Normal' type @xs@. When @xs@
--- is a 'Product' these are simple Cons/Snoc. For 'Coproeuct's the operation is
--- distributed over all constructors, e.g. @a*(x + y + z) = (ax + ay + az)@
+-- is a 'Product' these are simple Cons/Snoc (see '|>' and '<|'). For 'Sum's
+-- the operation is distributed over all constructors, as in:
+-- @a(x + y + z) = (ax + ay + az)@
 class DistributeTerm xs where
     -- | prepend the term @a@.
     (*<) :: a -> xs -> a :*<: xs
