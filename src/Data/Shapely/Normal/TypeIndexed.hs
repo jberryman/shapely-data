@@ -18,7 +18,7 @@ import Data.Shapely.Normal.Classes
 
 -- TODO 
 --    - type indexed 'factor' (and even 'distribute')
---    - inject :: prod -> sum
+--    - inject :: prod -> sum (and injectN, using constants)
 --    - `nub` for sum (perhaps calling `inject`)
 --    - Unique (or TypeSet, or...?) class (i.e. for products this is a TIP), or
 --    predicate class (clean up TypeIndexPred in Massageable, keeping method

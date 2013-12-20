@@ -55,9 +55,9 @@ compatibility issues when this module is improved.
     
     -- ** Exponentiation
     -- | In the algebra of algebraic datatypes, @(->)@ is analogous to
-    -- exponentiation, where b^a (TODO notation) == @(a -> b)@. The operations
-    -- here come from translating the algebraic laws of exponents to their
-    -- equivalents on ADTs.
+    -- exponentiation, where @xᵇ == (b -> x)@. The operations here come from
+    -- translating the algebraic laws of exponents to their equivalents on
+    -- ADTs.
     , Exponent(..), (:=>->), Base(..), (:->=>)
     , constructorsOfNormal
 
@@ -67,8 +67,8 @@ compatibility issues when this module is improved.
     , One, Two, Three, Four, Five, Six, Seven
     , _1, _2, _3, _4, _5, _6, _7
     -- *** Ordinals
-    , OneOrMore(..), _2nd, _3rd, _4th, _5th, _6th, _7th --TODO or _1th, _2th, etc
-    -- *** For forcing types
+    , OneOrMore(..), _2nd, _3rd, _4th, _5th, _6th, _7th
+    -- *** Forcing types
     , length, _of
   --, _+_ , succ, (math with ordinal numbers; this would add the ordinal representations)
     ) where
@@ -87,9 +87,9 @@ import Data.Traversable(Traversable)
 import Data.Proxy
 
 -- TODO:
+--      - read through all remaining TODO notes
 --      - documentation:
 --          - fix 'limitations' section
---      - maybe define number of constants up to size of tuple we derived instance for (15)
 --      - create some examples that re-create GHC generics motivation
 --      - finalize exports, modules, finish cabal file w/ proper docs & motivation
 --
@@ -462,9 +462,6 @@ data Zero
 length :: (Product as)=> as -> Proxy (Length as)
 length _ = Proxy
 
--- TODO: can this be used to construct a coproduct, specifying the product and
---       position and size in some way? Otherwise create those functions
-
 -- | Used as in e.g. @_3rd `_of` _7@, which has inferred type @Seven@.
 _of :: c -> Proxy c -> c
 _of = const
@@ -591,9 +588,9 @@ instance (FactorPrefix () abc, FactorPrefix () abcs
 
 -- | Return the term at the 1-based index @n@ of the 'Homogeneous' 'Product' @xs@.
 --
--- > xs !! n = 'fanin' xs (n `'_of'` 'length' xs)
-(!!) :: (Product as, as ~ (n :=>-> r), n ~ Length as, Exponent n) => as -> n -> r
-xs !! n = fanin xs (n `_of` length xs)
+-- > as !! i = 'fanin' as (i `'_of'` 'length' as)
+(!!) :: (Product as, as ~ (i :=>-> a), i ~ Length as, Exponent i) => as -> i -> a
+as !! i = fanin as (i `_of` length as)
 
 -- | 'Sum's of the unit type are our constants in the algebra of ADTs.
 -- They are cardinal numbers at the type level (length), while their /values/
