@@ -17,6 +17,8 @@ Description:         This is an experimental package providing template haskell
                      - create a good story around sums and products that can be used anywhere (give simple-actors example)
                      - Support rich algebraic operations on algebraic datatypes
 
+
+
 Homepage:            http://brandon.si/code/shapely-data/
 
 License:             BSD3

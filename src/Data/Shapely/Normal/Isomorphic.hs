@@ -1,9 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses
- , TypeFamilies
- , FlexibleInstances, FlexibleContexts
+ , TypeFamilies, FlexibleInstances, FlexibleContexts , FunctionalDependencies
  , OverlappingInstances -- for IsomorphicNormalWith to support recursive subterms
  , UndecidableInstances
- , FunctionalDependencies -- for IsOfBaseType
  , ScopedTypeVariables -- for bool passing trick in 2nd IsoTerms instance
  , PolyKinds, DataKinds
  #-}

@@ -70,7 +70,7 @@ compatibility issues when this module is improved.
     , OneOrMore(..), _2nd, _3rd, _4th, _5th, _6th, _7th
     -- *** Forcing types
     , length, _of
-  --, _+_ , succ, (math with ordinal numbers; this would add the ordinal representations)
+  --, -+- , succ, (TODO math with cardinals/ordinals)
     ) where
 
 import Data.Shapely.Category
@@ -87,7 +87,7 @@ import Data.Traversable(Traversable)
 import Data.Proxy
 
 -- TODO:
---      - read through all remaining TODO notes
+--      - maybe rename Isomorphic
 --      - documentation:
 --          - fix 'limitations' section
 --      - create some examples that re-create GHC generics motivation
@@ -130,6 +130,9 @@ import Data.Proxy
 --      - consider some scheme (from proxy-kindness) for optionally "guarding"
 --         ambiguous/polymorphic terms coming from parameterized types in
 --         functions that make use of type equality (e.g. massage)
+--      -explore relationship to:
+--           -lens
+--           -vinyl
 --
 -- OTHER FUNCTIONS:
 --   
@@ -157,16 +160,6 @@ import Data.Proxy
 --       - sort/insert ?
 --
 -- -------
--- FUTURE TODOs:
---   -figure out rest of equivalents of categories' Control.Category.Cartesian. see notes re. repeat & sum/product numerals (templates?)
---   -closed TypeFamilies for simpler instances?
---   -type-level naturals for e.g. 'length;-like functions
---   -explore relationship to:
---     -lens
---     -vinyl
---     -Arrow
---     - "lifted" programming with -XDataKinds
--- -------
 
 
 
@@ -180,7 +173,6 @@ type (x :*! y) = (x,(y,()))
 
 
 -- TODO: use instance defaulting here for these definitions after they are settled?
--- TODO: if we combine these methods into bigger classes, can we omit some constraints and simplify things?
 
 
 -- | Note: @viewl@ would be simply @id@.
@@ -290,7 +282,6 @@ instance Shiftable (Either a (x,y)) where
 instance (Shiftable (Either y zs)
         , Shiftable (Either x zs)
         , xs ~ (Either y zs) -- for readability
-        -- TODO simplify these
         , Tail (Either x zs) ~ Tail xs
         , (Last xs :< (x :< Init xs)) ~ Either a0 (Either x c0)
         , (Last xs :< Init xs)        ~ Either a0 c0
@@ -300,7 +291,7 @@ instance (Shiftable (Either y zs)
 
 
 
--- TODO remove, move functionality into Concatable
+-- TODO remove, move functionality into Concatable?
 -- | A @(++)@-like append operation on 'Product's and 'Sum's. See also
 -- ('.++.'). e.g.
 --
@@ -493,8 +484,6 @@ type instance Replicated Zero a = ()
 type instance Replicated () a = (a,())
 type instance Replicated (Either () n) a = (a, Replicated n a)
 
-
--- TODO rename replicate to repeat and add replicate :: Constant c=> Proxy c -> a -> Replicated c a
 
 infixr 0 $$:
 -- | > ($$:) f = fromFList . f . toFList

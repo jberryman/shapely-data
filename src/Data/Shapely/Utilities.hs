@@ -7,7 +7,7 @@ import Data.Shapely.Classes
 -- value.
 --
 -- > ($$) f = from . f . to
-infixr 1 $$  --TODO check is this right?
+infixr 0 $$
 ($$) :: (Shapely a, Shapely b)=> (Normal a -> Normal b) -> a -> b
 ($$) f = from . f . to
 

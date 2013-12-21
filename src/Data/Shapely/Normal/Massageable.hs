@@ -116,7 +116,10 @@ instance (MassageableNormalRec FLAT FLAT x y)=> MassageableNormal x y where
 --
 -- Here are some examples:
 --
---    TODO put code we used in tests here !!!
+-- > data Tsil a = Snoc (Tsil a) a | Lin
+-- >           deriving Eq
+-- > $(deriveShapely ''Tsil)
+-- > truth = massage "123" == Snoc (Snoc (Snoc Lin '3') '2') '1'
 --
 -- One limitation is we don't support a way to handle recursive structures
 -- beyond top-level direct recursion (e.g. mutually-recusrive pairs of types).

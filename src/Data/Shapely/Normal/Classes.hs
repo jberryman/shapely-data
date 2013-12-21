@@ -45,7 +45,6 @@ type instance NormalConstr (Either a b) = Either
 
 
 -- TODO look at which of these we use, and reassess definitions and names in light of algebraic approach 
--- TODO: consider making all Left parameters and results of sums explicitly () and (a,b)
 
 type family Head xs
 type family Tail xs
@@ -75,7 +74,7 @@ type instance Last (Either x ()) = ()
 type instance Last (Either x (a,b)) = (a,b)
 type instance Last (Only b) = b
 
--- Non-algebraic: add product to a sum, or multiply term onto product: --TODO still needed?
+-- Non-algebraic: add product to a sum, or multiply term onto product:
 type family t :< ts
 type instance x :< Only y = Either x y
 type instance x :< Either y zs = Either x (Either y zs)

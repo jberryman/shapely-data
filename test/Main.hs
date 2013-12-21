@@ -10,6 +10,9 @@ module Main
 -- a Bool that needs to be checked; otherwise we just care that things in here
 -- typecheck.
 --
+-- TODO make some proper quickcheck tests, especially using the polymorphic TH
+-- test generator stuff.
+--
 -- Contributers: Any changes that simplify or improve the structure of the
 -- Compose module are very welcome, as long as they don't break this test
 -- module.
@@ -24,11 +27,6 @@ import Data.Foldable(toList)
 import Data.Tree
 import Test.QuickCheck.All
 
---  TODO QUESTIONS:
-    -- How does massageable work with polymorphic terms?
-    --   - can we do massage (x :: Foo a b) :: Bar b a   ??
-    -- can we use the "extra method trick"?
-    -- what about types like data `Fix f = f (Fix f)`
 
 main = do passed <- $quickCheckAll 
           if passed then putStrLn "Ok" else error "Some tests failed"
@@ -231,6 +229,14 @@ data OrderedRec = OCons Int Int OrderedRec | ONull deriving Eq
 $(deriveShapely ''OrderedRec)
 prop_smoketest_orderedr_id = massage (OCons 1 1 (OCons 2 2 ONull)) == (OCons 1 1 (OCons 2 2 ONull))
 
+-- OrderedRec but reordered constructors, plus an extra constructor to
+-- demonstrate non-bijective mapping, where the cons is non-ambiguous because
+-- it uses ordering-significant matching (because all terms not unique types)
+data OrderedRec3 = ONull3 | OCons3 Int Int OrderedRec3 | ONewCons3 OrderedRec3 Int Int deriving Eq
+$(deriveShapely ''OrderedRec3)
+prop_smoketest_rec_ordered_expand = massage (OCons 1 1 (OCons 2 2 ONull)) == (OCons3 1 1 (OCons3 2 2 ONull3))
+
+
 -- [a] with both order of products and sums reversed:
 data Tsil a = Snoc (Tsil a) a
           | Lin
@@ -379,13 +385,12 @@ theirTree = Node 'a' ( [ Node 'b' [] , Node 'c' [] ])
 data WithFunctorTerm1 = WFT1 (Maybe WithFunctorTerm1) (Maybe [Int]) deriving Eq
 data WithFunctorTerm2 = WFT2 (Maybe WithFunctorTerm2) (Maybe [Int]) deriving Eq
 $(fmap Prelude.concat $ forM [''WithFunctorTerm1, ''WithFunctorTerm2] deriveShapely)
-prop_smoketest_functor_term_sanity = coerce (WFT1 Nothing $ Just [1..3]) == (WFT2 Nothing $ Just [1..3]) ---- TODO OVERLAPPING!!!!!!
+prop_smoketest_functor_term_sanity = coerce (WFT1 Nothing $ Just [1..3]) == (WFT2 Nothing $ Just [1..3])
 
 
 
--- POLYMORPHISM/INFERRENCE-PRESERVING STUFF WE MIGHT LIKE TO SUPPORT SOMEHOW
+-- TODO POLYMORPHISM/INFERRENCE-PRESERVING STUFF WE MIGHT LIKE TO SUPPORT SOMEHOW
 -- ------------------------------
--- TODO test these after sprucing up type funcs with incidental overlapping instances
 {-
 prop_smoketest_th_rec_reg_param_swapping_coerce = 
     (coerce RRPNil1) == (RRPNil2 :: RegRecParams2 Char Bool)

@@ -1,14 +1,6 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE MultiParamTypeClasses #-}  --these two for Isomorphic class
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts #-}   -- necessary for Shapely Generics instances
-{-# LANGUAGE TypeOperators #-}       -- for our cons synonym
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies , TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
--- TODO clean up above
 module Data.Shapely (
--- TODO: move this to the .cabal file
 {- | 
 /Issues and Limitations:/
 
@@ -67,5 +59,3 @@ $(concat <$> mapM deriveShapely [
     , ''Maybe
     , ''Bool
     ] )
-
--- TODO derive instances for all appropriate in "base"
