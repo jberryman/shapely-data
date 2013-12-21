@@ -59,7 +59,7 @@ drvShapely t cnstrctrs =
     InstanceD [] (AppT (ConT ''Shapely) ( t )) [
          TySynInstD ''Normal [ t ] (tNorm bcnstrctrs)
 
-       , FunD 'to (toClauses id bcnstrctrs)
+       , FunD 'from (toClauses id bcnstrctrs)
 
          -- i.e. constructorsOf = \_->  (the type's constructor(s))
        , ValD (VarP 'constructorsOf) (NormalB $ LamE [WildP] ( constrsOf bcnstrctrs)) []
@@ -87,10 +87,10 @@ drvShapely t cnstrctrs =
 
     toClauseProd :: (Exp -> Exp) -> BasicCon -> Clause
     toClauseProd sumWrapper (n, ts) = 
-      Clause [ConP n boundVars] (NormalB $ sumWrapper prodBody) [] -- e.g. to { (Fook a b) = Left (a,(b,())) }
+      Clause [ConP n boundVars] (NormalB $ sumWrapper prodBody) [] -- e.g. from { (Fook a b) = Left (a,(b,())) }
         where boundNames = map (mkName . ("a"++) . show) $ map fst $ zip [(0 :: Int)..] ts 
               boundVars :: [Pat]
-              boundVars = map VarP boundNames   -- e.g. to (Fook { a0 a1 }) = ...
+              boundVars = map VarP boundNames   -- e.g. from (Fook { a0 a1 }) = ...
               prodBody :: Exp
               prodBody = tupleList $ map VarE boundNames
 

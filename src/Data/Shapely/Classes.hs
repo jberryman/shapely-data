@@ -13,8 +13,9 @@ module Data.Shapely.Classes
 import Data.Shapely.Normal.Exponentiation
 
 
--- | Instances of the 'Shapely' class can be converted to and from a 'Normal'
--- representation, made up of @(,)@, @()@ and @Either@.
+-- | Instances of the 'Shapely' class have  a 'Normal' form representation,
+-- made up of @(,)@, @()@ and @Either@, and functions to convert 'from' @a@ and
+-- back 'to' @a@ again.
 class (Exponent (Normal a))=> Shapely a where
     -- | A @Shapely@ instances \"normal form\" representation, consisting of
     -- nested product, sum and unit types. Types with a single constructor will
@@ -25,10 +26,11 @@ class (Exponent (Normal a))=> Shapely a where
     -- for details.
     type Normal a
 
-    to :: a -> Normal a
+    -- NOTE: the naming here seems backwards but is what's in GHC.Generics
+    from :: a -> Normal a
 
-    from :: Normal a -> a
-    from na = let a = fanin (constructorsOf a) na in a
+    to :: Normal a -> a
+    to na = let a = fanin (constructorsOf a) na in a
     
     -- | Return a structure capable of rebuilding a type @a@ from its 'Normal'
     -- representation (via 'fanin').
@@ -40,7 +42,7 @@ class (Exponent (Normal a))=> Shapely a where
     --
     -- Satisfies:
     --
-    -- > 'fanin' (constructorsOf a) (to a) == a
+    -- > 'fanin' (constructorsOf a) (from a) == a
     constructorsOf :: a -> Normal a :=>-> a
 
 
@@ -52,8 +54,8 @@ class (Exponent (Normal a))=> Shapely a where
 -- stack of its terms (in this case there aren't any).
 instance Shapely () where  
     type Normal () = ()
-    to = id
-  --from = id
+    from = id
+  --to = id
     constructorsOf _ = ()
 
 -- And data constructor arguments appear on the 'fst' positions of nested
@@ -61,16 +63,16 @@ instance Shapely () where
 -- | Note, the normal form for a tuple is not itself
 instance Shapely (x,y) where
     type Normal (x,y) = (x,(y,()))
-    to (x,y) = (x,(y,()))
-  --from (x,(y,())) = (x,y)
+    from (x,y) = (x,(y,()))
+  --to (x,(y,())) = (x,y)
     constructorsOf _ = (,)
 
 -- Here, again syntactically, both constructors Left and Right become `()`, and
 -- we replace `|` with `Either` creating a sum of products.
 instance Shapely (Either x y) where
     type Normal (Either x y) = Either (x,()) (y,())
-    to = let f = flip (,) () in either (Left . f) (Right . f)
-  --from = either (Left . fst) (Right . fst)
+    from = let f = flip (,) () in either (Left . f) (Right . f)
+  --to = either (Left . fst) (Right . fst)
     constructorsOf _ = (Left,(Right,()))
   
 -- The Normal form of a type is just a simple unpacking of the constructor
@@ -81,8 +83,8 @@ instance Shapely (Either x y) where
 instance Shapely [a] where 
     -- NOTE: data [] a = [] | a : [a]    -- Defined in `GHC.Types'
     type Normal [a] = Either () (a,([a],()))
-    to []         = Left ()
-    to ((:) a as) = Right (a, (as, ()))
+    from []         = Left ()
+    from ((:) a as) = Right (a, (as, ()))
     constructorsOf _ = ([],((:),()))
 
 ---- Additional instances are derived automatically in Data.Shapely
