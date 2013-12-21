@@ -87,7 +87,6 @@ import Data.Traversable(Traversable)
 import Data.Proxy
 
 -- TODO:
---      - maybe rename Isomorphic
 --      - documentation:
 --          - fix 'limitations' section
 --      - create some examples that re-create GHC generics motivation

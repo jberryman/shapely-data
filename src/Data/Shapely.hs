@@ -28,7 +28,7 @@ module Data.Shapely (
     -- * Deriving Shapely instances automatically
     , deriveShapely
 
-    , Isomorphic(..), IsomorphicWith(..), Massageable(..)
+    , Isomorphic(..), CoercibleWith(..), Massageable(..)
     , ($$)
     ) where
 
@@ -36,7 +36,7 @@ import Data.Shapely.TH
 import Data.Shapely.Classes
 import Data.Shapely.Normal.Classes
 import Data.Shapely.Normal.Massageable
-import Data.Shapely.Normal.Isomorphic
+import Data.Shapely.Normal.Coercible
 import Data.Shapely.Utilities
 
 import Control.Applicative

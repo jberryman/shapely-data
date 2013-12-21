@@ -1,11 +1,11 @@
 {-# LANGUAGE MultiParamTypeClasses
  , TypeFamilies, FlexibleInstances, FlexibleContexts , FunctionalDependencies
- , OverlappingInstances -- for IsomorphicNormalWith to support recursive subterms
+ , OverlappingInstances -- for CoercibleNormalWith to support recursive subterms
  , UndecidableInstances
- , ScopedTypeVariables -- for bool passing trick in 2nd IsoTerms instance
+ , ScopedTypeVariables -- for bool passing trick in 2nd CoerceTerms instance
  , PolyKinds, DataKinds
  #-}
-module Data.Shapely.Normal.Isomorphic
+module Data.Shapely.Normal.Coercible
     where
 
 -- separated, again, to contain OverlappingInstances
@@ -17,8 +17,6 @@ import Data.Shapely.Utilities
 import Data.Shapely.Spine
 import Data.Proxy.Kindness
 
-
--- TODO Isomorphic and IsomorphicWith classes required? Or just make poymorphic functions
 
 -- | Two types @a@ and @b@ are isomorphic, by this definition, if they have the
 -- same number and ordering of constructors, and where 'Product' terms are
@@ -35,13 +33,13 @@ class (Shapely a, Shapely b)=> Isomorphic a b where
 
 -- | We use 'Unapplied' to recurse on all occurrences of the base type @t@,
 -- regardless of its parameters.
-instance (Unapplied (Proxy txy) t, IsomorphicWith (Proxy t,()) txy b)=> Isomorphic txy b where
+instance (Unapplied (Proxy txy) t, CoercibleWith (Proxy t,()) txy b)=> Isomorphic txy b where
     coerce a = coerceWith (unappliedOf a, ()) a
 
 
--- TODO not really Isomorphic since we can't reverse a and b and keep ts
--- | TODO
-class (SpineOf ts, Shapely a, Shapely b)=> IsomorphicWith ts a b where
+-- | A 'Shapely' type @a@ coercible to @b@ where types in the spine @ts@ are
+-- recursively 'coerceWith'-ed to @b@.
+class (SpineOf ts, Shapely a, Shapely b)=> CoercibleWith ts a b where
     -- | Convert a type @a@ to an isomorphic type @b@, where the 'Proxy' types
     -- in @ts@ define the recursive structure of @a@. See 'SpineOf'. 
     --
@@ -49,54 +47,54 @@ class (SpineOf ts, Shapely a, Shapely b)=> IsomorphicWith ts a b where
     -- top-level product terms or in nested 'Functor' applications.
     coerceWith :: ts -> a -> b
 
-instance (Shapely a, Shapely b, IsomorphicNormalWith ts (Normal a) (Normal b))=> IsomorphicWith ts a b where
+instance (Shapely a, Shapely b, CoercibleNormalWith ts (Normal a) (Normal b))=> CoercibleWith ts a b where
     coerceWith ts a = coerceNormalWith ts $$ a
 
 
 -- ---------------- INTERNAL (for now)
 
-class (SpineOf ts)=> IsomorphicNormalWith ts na nb where
+class (SpineOf ts)=> CoercibleNormalWith ts na nb where
     coerceNormalWith :: ts -> na -> nb
 
-instance (SpineOf ts)=> IsomorphicNormalWith ts () () where
+instance (SpineOf ts)=> CoercibleNormalWith ts () () where
     coerceNormalWith _ = id
 
-instance (IsoTerms ts ts x y, IsomorphicNormalWith ts as bs)=> IsomorphicNormalWith ts (x,as) (y,bs) where
+instance (CoerceTerms ts ts x y, CoercibleNormalWith ts as bs)=> CoercibleNormalWith ts (x,as) (y,bs) where
     coerceNormalWith ts (x,as) = (coerceTermWith ts ts x, coerceNormalWith ts as)
 
-instance (IsomorphicNormalWith a as as', IsomorphicNormalWith a bs bs')=> IsomorphicNormalWith a (Either as bs) (Either as' bs') where
+instance (CoercibleNormalWith a as as', CoercibleNormalWith a bs bs')=> CoercibleNormalWith a (Either as bs) (Either as' bs') where
     coerceNormalWith a' = bimap (coerceNormalWith a') (coerceNormalWith a')
 
 
 
-class (SpineOf tsOrig, SpineOf tsBeingChecked)=> IsoTerms tsBeingChecked tsOrig a b where
+class (SpineOf tsOrig, SpineOf tsBeingChecked)=> CoerceTerms tsBeingChecked tsOrig a b where
     coerceTermWith :: tsBeingChecked -> tsOrig -> a -> b
 
 -- we got to the end of the list of spine types, so insist on the terms being equal:
-instance (SpineOf tsOrig)=> IsoTerms () tsOrig a a where
+instance (SpineOf tsOrig)=> CoerceTerms () tsOrig a a where
     coerceTermWith _ _ = id
 
 instance (SpineOf (Proxy x, ts), SpineOf tsOrig
-         , IsOfBaseType x a bool, TryingIsoTerm bool ts tsOrig a b
-         )=> IsoTerms (Proxy x, ts) tsOrig a b where
+         , IsOfBaseType x a bool, TryingCoerceTerm bool ts tsOrig a b
+         )=> CoerceTerms (Proxy x, ts) tsOrig a b where
     coerceTermWith = coerceTermWithOrContinue (Proxy :: Proxy bool) . snd
 
 -- BASE CASE. When we've exhausted the list and have two non-equal terms we try
 -- recursive type application, else type error.
-instance (empty ~ (), fa ~ f a, fb ~ f b, SpineOf ts, Functor f, IsoTerms ts ts a b)=> IsoTerms empty ts fa fb where
+instance (empty ~ (), fa ~ f a, fb ~ f b, SpineOf ts, Functor f, CoerceTerms ts ts a b)=> CoerceTerms empty ts fa fb where
     coerceTermWith _ ts = fmap (coerceTermWith ts ts)
 
 
--- IsoTerms helper that based on the passed type-level Bool either tries to
+-- CoerceTerms helper that based on the passed type-level Bool either tries to
 -- recursively coerce term a, or continues processing the type spine list by
--- calling IsoTerms again.
-class TryingIsoTerm (aIsOfBaseType :: Bool) ts tsOrig a b where
+-- calling CoerceTerms again.
+class TryingCoerceTerm (aIsOfBaseType :: Bool) ts tsOrig a b where
     coerceTermWithOrContinue :: Proxy aIsOfBaseType -> ts -> tsOrig -> a -> b
 
 -- a was in spine
-instance (IsomorphicWith tsOrig a b)=> TryingIsoTerm True ts tsOrig a b where
+instance (CoercibleWith tsOrig a b)=> TryingCoerceTerm True ts tsOrig a b where
     coerceTermWithOrContinue _ _ = coerceWith
 -- a is not part of spine, try tail of spine list:
-instance (IsoTerms ts tsOrig a b, SpineOf ts, SpineOf tsOrig)=> TryingIsoTerm False ts tsOrig a b where
+instance (CoerceTerms ts tsOrig a b, SpineOf ts, SpineOf tsOrig)=> TryingCoerceTerm False ts tsOrig a b where
     coerceTermWithOrContinue _ = coerceTermWith
 

@@ -57,7 +57,7 @@ Library
                      , Data.Shapely.Classes
                      , Data.Shapely.Normal.Classes
                      , Data.Shapely.Normal.Exponentiation
-                     , Data.Shapely.Normal.Isomorphic
+                     , Data.Shapely.Normal.Coercible
                      , Data.Shapely.Normal.Massageable
                      , Data.Shapely.TH
                      , Data.Shapely.Utilities
