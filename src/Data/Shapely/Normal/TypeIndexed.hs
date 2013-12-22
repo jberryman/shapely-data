@@ -3,6 +3,15 @@
   , DataKinds  -- for True/False
   #-}
 module Data.Shapely.Normal.TypeIndexed (
+{- |
+Operations on 'Normal' form types which make use of type equality. The type
+level boolean type we use is the lifted @Bool@ type, requiring @DataKinds@.
+
+Most of the functions here require all terms to be unambiguous, so you might
+find some type annotations are necessary.
+
+This module will be getting more functionality going forward.
+ -}
       HasAny
     , viewType , viewTypeOf
     , HavingType(..)
@@ -27,6 +36,7 @@ import Data.Shapely.Normal.Classes
 
 -- We borrow this type-equality comparison trick from Oleg: 
 --   http://okmij.org/ftp/Haskell/ConEQ.hs
+-- | A type equality predicate class.
 class HasAny a l (b::Bool) | a l -> b
 
 instance HasAny a (a,l) True
@@ -39,7 +49,7 @@ instance (HasAny a (Tail (Either x l)) b)=> HasAny a (Either x l) b
 instance HasAny p (Only p) True
 instance (false ~ False)=> HasAny p (Only x) false
 
-
+-- TODO: no reason this has to be only on Products
 
 class NubType l l' | l -> l' where
     -- | Remove all but the first occurrence of each type.

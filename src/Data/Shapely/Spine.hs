@@ -5,8 +5,6 @@
  , UndecidableInstances  -- for (Shapely tab, Applied t tab) constraint
  #-}
 module Data.Shapely.Spine (
-{- | 
- -}
     -- * Constructing a type's Spine
       SpineOf(..), (:-:), (:-!)
     -- * Working with Proxys

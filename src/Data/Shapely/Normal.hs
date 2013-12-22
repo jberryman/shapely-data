@@ -15,12 +15,16 @@ Functions for composing and modifying our 'Normal' form types.
 These take their names from the familiar functions in Data.List and Prelude,
 but are given more general forms, sometimes loosely after the constructions in
 Edward Kmett's "categories" package. There are probably many improvements and
-additions possible here.
+additions possible here. 
+
+You probably want to import this in one of the following ways:
+
+> import Data.Shapely.Normal as Sh
+> import qualified Data.Shapely.Normal as Sh
+> import Data.Shapely.Normal hiding ((!!),repeat,replicate,concat,reverse, map, length)
 
 /NOTE/: The structure of the classes, type functions, and class constraints
-here are likely to change a lot, however the names of individual functions and
-methods and their use should be stable, so hopefully there will be few
-compatibility issues when this module is improved.
+here are likely to change a lot.
 -}
       Only(..)
 
@@ -87,8 +91,6 @@ import Data.Traversable(Traversable)
 import Data.Proxy
 
 -- TODO:
---      - finish module export list docs.
---
 --
 --   v0.2:
 --      - move to closed type families, look at replacing OverlappingInstances
@@ -467,9 +469,12 @@ ary _ = id
 
 
 type family Length t
-type instance Length () = Zero                              -- | 0
-type instance Length (a,()) = ()                            -- | 1
-type instance Length (a,(b,bs)) = Either () (Length (b,bs)) -- | 1 + (length tail)
+-- | 0
+type instance Length () = Zero                              
+-- | 1
+type instance Length (a,()) = ()                            
+-- | 1 + ('length' tail)
+type instance Length (a,(b,bs)) = Either () (Length (b,bs)) 
 
 type family Replicated len a
 type instance Replicated Zero a = ()
