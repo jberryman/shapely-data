@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Main
     where
@@ -226,14 +226,14 @@ massageNormal md :: Either (Char,(Char,(Bool,()))) (Either (Int,()) (Char,(Char,
 prop_smoketest_mr_id = massage "foo" == "foo"
 
 data OrderedRec = OCons Int Int OrderedRec | ONull deriving Eq
-$(deriveShapely ''OrderedRec)
+deriveShapely ''OrderedRec
 prop_smoketest_orderedr_id = massage (OCons 1 1 (OCons 2 2 ONull)) == (OCons 1 1 (OCons 2 2 ONull))
 
 -- OrderedRec but reordered constructors, plus an extra constructor to
 -- demonstrate non-bijective mapping, where the cons is non-ambiguous because
 -- it uses ordering-significant matching (because all terms not unique types)
 data OrderedRec3 = ONull3 | OCons3 Int Int OrderedRec3 | ONewCons3 OrderedRec3 Int Int deriving Eq
-$(deriveShapely ''OrderedRec3)
+deriveShapely ''OrderedRec3
 prop_smoketest_rec_ordered_expand = massage (OCons 1 1 (OCons 2 2 ONull)) == (OCons3 1 1 (OCons3 2 2 ONull3))
 
 
@@ -241,7 +241,7 @@ prop_smoketest_rec_ordered_expand = massage (OCons 1 1 (OCons 2 2 ONull)) == (OC
 data Tsil a = Snoc (Tsil a) a
           | Lin
           deriving Eq
-$(deriveShapely ''Tsil)
+deriveShapely ''Tsil
 prop_smoketest_m_unorderedr = massage "123" == Snoc (Snoc (Snoc Lin '3') '2') '1'
 
 
@@ -286,16 +286,16 @@ data D a b = D0 a | D1 b deriving (Eq,Show) -- Either
 data E a = E0 | E1 a deriving (Eq,Show) -- Maybe
 data F a b c = F0 a b c | F1 a b | F2 a deriving (Eq,Show)
 
-$(deriveShapely ''A)
-$(deriveShapely ''B)
-$(deriveShapely ''C)
-$(deriveShapely ''D)
-$(deriveShapely ''E)
-$(deriveShapely ''F)
+deriveShapely ''A
+deriveShapely ''B
+deriveShapely ''C
+deriveShapely ''D
+deriveShapely ''E
+deriveShapely ''F
 
 -- RECURSIVE: -------
 data Li = Em | Co Char Li deriving Eq
-$(deriveShapely ''Li)
+deriveShapely ''Li
 
 prop_smoketest_th_rec = 
     let a = "works" 
@@ -306,14 +306,14 @@ prop_smoketest_th_rec =
 data SimpleTree a = SBr (SimpleTree a) a (SimpleTree a)
                      | SEm
                      deriving (Eq,Show)
-$(deriveShapely ''SimpleTree)
+deriveShapely ''SimpleTree
 data LRTree a = LRTop (LTree a) a (RTree a)
                  | LRTopEm
 data LTree a = LBr (LTree a) a (RTree a)
                 | LEm
 data RTree a = RBr (LTree a) a (RTree a)
                 | REm
-$(fmap Prelude.concat $ forM [''LRTree , ''LTree , ''RTree ] deriveShapely)
+fmap Prelude.concat $ forM [''LRTree , ''LTree , ''RTree ] deriveShapely
 
 -- test deeper recursive structure: 
 prop_smoketest_th_rec_multi = 
@@ -330,14 +330,14 @@ prop_smoketest_th_rec_multi =
 data Simple2Tree a b = S2Br (Simple2Tree b a) a b (Simple2Tree b a)
                      | S2Em
                      deriving (Eq,Show)
-$(deriveShapely ''Simple2Tree)
+deriveShapely ''Simple2Tree
 data LR2Tree a b = LR2Top (L2Tree b a) a b (R2Tree b a)
                  | LR2TopEm
 data L2Tree a b = L2Br (L2Tree b a) a b (R2Tree b a)
                 | L2Em
 data R2Tree a b = R2Br (L2Tree b a) a b (R2Tree b a)
                 | R2Em
-$(fmap Prelude.concat $ forM [''LR2Tree , ''L2Tree , ''R2Tree ] deriveShapely)
+fmap Prelude.concat $ forM [''LR2Tree , ''L2Tree , ''R2Tree ] deriveShapely
 
 -- test deeper recursive structure: 
 prop_smoketest_th_rec_multi_parameter_agnostic = 
@@ -352,7 +352,7 @@ prop_smoketest_th_rec_multi_parameter_agnostic =
 -- it uses Unapplied:
 data RegRecParams1 a b = RRPCons1 a b (RegRecParams1 b a) | RRPNil1 deriving (Eq,Show)
 data RegRecParams2 a b = RRPCons2 a b (RegRecParams2 b a) | RRPNil2 deriving (Eq,Show)
-$(fmap Prelude.concat $ forM [''RegRecParams1, ''RegRecParams2] deriveShapely)
+fmap Prelude.concat $ forM [''RegRecParams1, ''RegRecParams2] deriveShapely
 
 prop_smoketest_th_rec_reg_param_swapping_coerce = 
     (coerce $ RRPCons1 'a' True RRPNil1) == RRPCons2 'a' True RRPNil2
@@ -365,7 +365,7 @@ coerce_recursive_self = coerce "where the instance shows source/target term equa
 data OurTree a = OurNode a (OurForest a) deriving (Eq, Functor, Show)
 data OurForest a = OurEmptyForest | OurForestCons (OurTree a) (OurForest a)
     deriving (Eq, Functor, Show) -- really a list
-$(fmap Prelude.concat $ forM [''Tree, ''OurTree, ''OurForest] deriveShapely)
+fmap Prelude.concat $ forM [''Tree, ''OurTree, ''OurForest] deriveShapely
 
 ourTree = OurNode 'a' (OurForestCons (OurNode 'b' OurEmptyForest) (OurForestCons (OurNode 'c' OurEmptyForest) OurEmptyForest)) 
 theirTree = Node 'a' ( [ Node 'b' [] , Node 'c' [] ]) 
@@ -376,7 +376,7 @@ prop_smoketest_coerceWith_type_application = coerceWith (spine :: OurTree :-! Ou
  - where we need Shapely of OurForest to inline the newtype wrapper
 data OurTree a = OurNode a (OurForest a) deriving (Functor, Show)
 newtype OurForest a = OurForest [OurTree a] deriving ( Functor, Show)
-$(fmap Prelude.concat $ forM [''Tree, ''OurTree, ''OurForest] deriveShapely)
+fmap Prelude.concat $ forM [''Tree, ''OurTree, ''OurForest] deriveShapely
 
 ourTree = OurNode 'a' (OurForest [OurNode 'b' (OurForest []) , OurNode 'c' (OurForest []) ])
 theirTree = Node 'a' ( [ Node 'b' [] , Node 'c' [] ]) 
@@ -384,7 +384,7 @@ theirTree = Node 'a' ( [ Node 'b' [] , Node 'c' [] ])
 
 data WithFunctorTerm1 = WFT1 (Maybe WithFunctorTerm1) (Maybe [Int]) deriving Eq
 data WithFunctorTerm2 = WFT2 (Maybe WithFunctorTerm2) (Maybe [Int]) deriving Eq
-$(fmap Prelude.concat $ forM [''WithFunctorTerm1, ''WithFunctorTerm2] deriveShapely)
+fmap Prelude.concat $ forM [''WithFunctorTerm1, ''WithFunctorTerm2] deriveShapely
 prop_smoketest_functor_term_sanity = coerce (WFT1 Nothing $ Just [1..3]) == (WFT2 Nothing $ Just [1..3])
 
 
