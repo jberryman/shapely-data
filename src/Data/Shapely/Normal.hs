@@ -87,10 +87,8 @@ import Data.Traversable(Traversable)
 import Data.Proxy
 
 -- TODO:
---      - documentation:
---          - fix 'limitations' section
---      - create some examples that re-create GHC generics motivation
---      - finalize exports, modules, finish cabal file w/ proper docs & motivation
+--      - CONSIDER RENAMING PRODUCT CONSTRUCTION HELPERS: 1 *: 'a' *: True *: 1 *: 'a' *! True
+--      - finish module export list docs.
 --
 --
 --   v0.2:
@@ -98,6 +96,7 @@ import Data.Proxy
 --        with these by using families for type equality
 --          - use closed type fams in proxy-kindness too
 --          - does this give us some injectivity / better inferrence yet?
+--              (WON'T. apparently work not being done on this yet)
 --      - in class declarations, consider removing constraints (but keeping
 --         them on instances) this will help clean up signatures on polymorphic
 --         functions. This will probably be more efficient more of the time too.
@@ -118,6 +117,8 @@ import Data.Proxy
 --          we should be able to do this with closed type families where a
 --          nested (f source) (f target) evaluates to a Functor constraint, else ()
 --          ...at least we can simplify constraints
+--      - study "lens", and see how we can integrate/defer functionality to that lib
+--          - also look at "vinyl"
 --      - maybe an nthMap function on Sums
 --      - Do we have nice inference on closed type families yet? revisit constraints
 --      - function that does a series expansion (up to _nth) of a recursive type
@@ -129,9 +130,6 @@ import Data.Proxy
 --      - consider some scheme (from proxy-kindness) for optionally "guarding"
 --         ambiguous/polymorphic terms coming from parameterized types in
 --         functions that make use of type equality (e.g. massage)
---      -explore relationship to:
---           -lens
---           -vinyl
 --
 -- OTHER FUNCTIONS:
 --   

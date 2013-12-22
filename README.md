@@ -11,9 +11,10 @@ You can install it with
 In order from most to least important to me, here are the concerns that
 motivated the library:
 
-- Provide a good story for `(,)`/`Either` as a generic representation that
-  other library writers can use without dependencies, encouraging abstractions
-  in terms of products and sums (motivated specifically by my work on
+- Provide a good story for `(,)`/`Either` as a /lingua franca/ generic
+  representation that other library writers can use without dependencies,
+  encouraging abstractions in terms of products and sums (motivated
+  specifically by my work on
   [`simple-actors`](http://hackage.haskell.org/package/simple-actors).
 
 - Support algebraic operations on ADTs, making types composable
