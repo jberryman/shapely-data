@@ -39,7 +39,7 @@ s :: (Int,()) :+: (Char,()) :+: (Bool :*! String)
 s = Right (Right (True,("true",())))
 
 p :: (Int,(Char,(Bool,())))
-p = 1 <| 'a' <! True
+p = 1 *: 'a' *! True
 --  (1,('a',(True,())))
 
 
@@ -78,7 +78,7 @@ multiply1
                             (Bool, ([Char], (Bool, (String, ())))))))))))
 multiply1 = s >*< s
 
-prop_smoketest_multiply2 = p >*< () >*< p == 1 <| 'a' <| True <| 1 <| 'a' <! True
+prop_smoketest_multiply2 = p >*< () >*< p == 1 *: 'a' *: True *: 1 *: 'a' *! True
 
 prop_smoketest_multiply_monoid = and $ 
     [ () >*< p == p

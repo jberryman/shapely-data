@@ -37,7 +37,7 @@ compatibility issues when this module is improved.
     , Homogeneous(..), FixedList(), (!!), ($$:), replicate
     -- ** Construction convenience operators
     , single
-    , (|>), (<|), (<!)
+    , (*:), (*!)
     -- ** Forcing types
     , HavingLength, ary
 
@@ -87,7 +87,6 @@ import Data.Traversable(Traversable)
 import Data.Proxy
 
 -- TODO:
---      - CONSIDER RENAMING PRODUCT CONSTRUCTION HELPERS: 1 *: 'a' *: True *: 1 *: 'a' *! True
 --      - finish module export list docs.
 --
 --
@@ -372,9 +371,10 @@ type instance () :>*: a = (a,())
 type instance (x,xs) :>*: a = (x, xs :>*: a)
 type instance Either xs yss :>*: a = Either (xs :>*: a) (yss :>*: a)
 
+
 -- | Algebraic multiplication of a term with some 'Normal' type @xs@. When @xs@
--- is a 'Product' these are simple Cons/Snoc (see '|>' and '<|'). For 'Sum's
--- the operation is distributed over all constructors, as in:
+-- is a 'Product' these are simple Cons/Snoc (see '*:'). For 'Sum's the
+-- operation is distributed over all constructors, as in: 
 -- @a(x + y + z) = (ax + ay + az)@
 class DistributeTerm xs where
     -- | prepend the term @a@.
@@ -397,28 +397,23 @@ instance (DistributeTerm xs, DistributeTerm yss)=> DistributeTerm (Either xs yss
 
 
 
-infixl 5 |>
-infixr 5 <| 
-infixr 5 <!
--- | A convenience operator for appending an element to a product type.
--- 'Shiftable' generalizes this operation. See also 'Multiply'.JJ
---
--- > xs |> x = shiftl (x,xs)
-(|>) :: (Product xs, Shiftable (x,xs))=> xs -> x -> (xs :> x)
-xs |> x = shiftl (x,xs)
+infixr 5 *: 
+infixr 5 *!
 
 -- | A left push for Products.
 --
--- > (<|) = (,)
-(<|) ::  (Product xs)=> x -> xs -> (x,xs)
-(<|) = (,)
-
--- | Convenience function for combining 'Product' terms, with ('<|'), e.g.
--- @0 <| 1 <| 2 <! 3@
+-- > (*:) = (,)
 --
--- > x <! y = (x,(y,()))
-(<!) :: x -> y -> (x,(y,()))
-x <! y = (x,(y,()))
+-- For a right push, see ('>*').
+(*:) ::  (Product xs)=> x -> xs -> (x,xs)
+(*:) = (,)
+
+-- | Convenience function for combining 'Product' terms, with ('*:'), e.g.
+-- @0 *: 1 *: 2 *! 3@
+--
+-- > x *! y = (x,(y,()))
+(*!) :: x -> y -> (x,(y,()))
+x *! y = (x,(y,()))
 
 -- | > constructorsOfNormal = 'unfanin' id
 --
