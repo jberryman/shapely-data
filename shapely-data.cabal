@@ -3,19 +3,19 @@ Name:                shapely-data
 Version:             0.1
 tested-with:         GHC == 7.6.3
 
-Synopsis: Generics using @(,)@ and @Either@, with algebraic operations and typed conversions
+Synopsis: Generics using (,) and Either, with algebraic operations and typed conversions
 
 Description:         
     @shapely-data@ is a library for working with algebraic datatypes in a
     simple generic form made up of haskell's primitive product, sum and unit
-    types: `(,)`, `Either`, and `()`, providing something like light-weight
+    types: @(,)@, @Either@, and @()@, providing something like light-weight
     Structural Typing.
     .
     The library was not designed to facilitate generic traversals or
     abstraction over different recursion schemes, but rather to (from most to
     least important)
     .
-    - Provide a good story for @(,)@/@Either@ as a /lingua franca/ generic
+    - Provide a good story for @(,)@ & @Either@ as a /lingua franca/ generic
       representation that other library writers can use without dependencies,
       encouraging abstractions in terms of products and sums
     .

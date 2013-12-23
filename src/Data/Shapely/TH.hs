@@ -20,7 +20,7 @@ import Language.Haskell.TH
 -- | Generate a 'Shapely' instance for the type passed as argument @nm@. Used
 -- like:
 --
--- > $(deriveShapely ''Tree)  -- two single-quotes reference a TH "Name"
+-- > $(deriveShapely ''Tree)  -- two single-quotes reference a TH "Name" and the splice is optional
 --
 -- The algorithm used here to generate the 'Normal' instance is most easily
 -- described syntactically:

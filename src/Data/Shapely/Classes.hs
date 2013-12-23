@@ -22,8 +22,8 @@ class (Exponent (Normal a))=> Shapely a where
     -- be given a 'Product' Normal representation, where types with more than
     -- one constructor will be 'Sum's. 
     --
-    -- See the documentation for 'deriveShapely', and the instances defined here
-    -- for details.
+    -- See the documentation for 'Data.Shapely.TH.deriveShapely', and the
+    -- instances defined here for details.
     type Normal a
 
     -- NOTE: the naming here seems backwards but is what's in GHC.Generics
@@ -42,7 +42,7 @@ class (Exponent (Normal a))=> Shapely a where
     --
     -- Satisfies:
     --
-    -- > 'fanin' (constructorsOf a) (from a) == a
+    -- > fanin (constructorsOf a) (from a) == a
     constructorsOf :: a -> Normal a :=>-> a
 
 

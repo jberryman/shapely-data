@@ -25,7 +25,9 @@ class (Shapely a, Shapely b)=> Isomorphic a b where
     -- | Convert a possibly direct-recursive type @a@ to an isomorphic type
     -- @b@. This is defined:
     --  
-    -- > coerce a = 'coerceWith' ('unappliedOf' a, ()) a
+    -- @
+    --   coerce a = 'coerceWith' ('unappliedOf' a, ()) a
+    -- @
     --
     -- See 'massage' for a more powerful and flexible conversion function
     -- supporting direct recursion.
